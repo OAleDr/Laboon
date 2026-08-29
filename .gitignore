@@ -13,15 +13,20 @@ build/
 *.class
 out/
 
+# Servidores locais
+**/servers/
+
+# JARs gerados
+*.jar
+
 # Logs
 *.log
 logs/
 
-# Servidores locais
-servers/
-
 # Arquivos locais/sensíveis
 .env
+*.secret
+.console_history
 
 # Sistema operacional
 .DS_Store
