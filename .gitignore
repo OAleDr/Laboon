@@ -17,15 +17,8 @@ out/
 *.log
 logs/
 
-# Servidores - arquivos gerados
-servers/*/logs/
-servers/*/cache/
-servers/*/world/
-servers/*/world_nether/
-servers/*/world_the_end/
-
-# JARs gerados pelo Laboon
-servers/*/plugins/Laboon-*.jar
+# Servidores locais
+servers/
 
 # Arquivos locais/sensíveis
 .env
