@@ -1,0 +1,35 @@
+# IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Gradle
+.gradle/
+build/
+**/build/
+
+# Compilação Java
+*.class
+out/
+
+# Logs
+*.log
+logs/
+
+# Servidores - arquivos gerados
+servers/*/logs/
+servers/*/cache/
+servers/*/world/
+servers/*/world_nether/
+servers/*/world_the_end/
+
+# JARs gerados pelo Laboon
+servers/*/plugins/Laboon-*.jar
+
+# Arquivos locais/sensíveis
+.env
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
