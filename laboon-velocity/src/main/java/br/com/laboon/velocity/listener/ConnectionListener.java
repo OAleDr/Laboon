@@ -6,7 +6,10 @@ import br.com.laboon.velocity.server.ServerSelector;
 
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.LoginEvent;
+import com.velocitypowered.api.event.connection.PostLoginEvent;
 import com.velocitypowered.api.proxy.Player;
+
+import net.kyori.adventure.text.Component;
 
 public final class ConnectionListener {
 
@@ -19,12 +22,14 @@ public final class ConnectionListener {
     ) {
         this.serverSelector =
                 serverSelector;
-        this.connectionService = connectionService;
+
+        this.connectionService =
+                connectionService;
     }
 
     @Subscribe
     public void onLogin(
-            LoginEvent event
+            PostLoginEvent event
     ) {
 
         Player player =
@@ -36,14 +41,17 @@ public final class ConnectionListener {
         if (lobby == null) {
 
             player.disconnect(
-                    net.kyori.adventure.text.Component.text(
-                            "Nenhum Lobby disponível."
+                    Component.text(
+                            "Nenhum Lobby disponível no momento."
                     )
             );
 
             return;
         }
 
-        connectionService.connect(player, lobby);
+        connectionService.connect(
+                player,
+                lobby
+        );
     }
 }

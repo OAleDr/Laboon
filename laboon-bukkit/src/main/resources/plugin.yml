@@ -3,4 +3,4 @@ version: 1.0.0
 main: br.com.laboon.bukkit.LaboonBukkit
 description: Laboon Network Bukkit
 author: Laboon
-api-version: '26.2'
+api-version: '1.21'

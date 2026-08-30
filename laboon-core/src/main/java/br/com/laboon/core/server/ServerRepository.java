@@ -96,49 +96,27 @@ public final class ServerRepository {
         return servers;
     }
 
-    public ServerInfo findAvailable(ServerType type) {
+    public ServerInfo findAvailable(
+            ServerType type
+    ) {
 
-        List<ServerInfo> servers = findByType(type);
-
-        System.out.println(
-                "[Laboon] Procurando servidor do tipo: "
-                        + type
-        );
-
-        System.out.println(
-                "[Laboon] Servidores encontrados: "
-                        + servers.size()
-        );
-
-        for (ServerInfo server : servers) {
-
-            System.out.println(
-                    "[Laboon] Server: "
-                            + server.getName()
-                            + " | type="
-                            + server.getType()
-                            + " | state="
-                            + server.getState()
-                            + " | players="
-                            + server.getPlayers()
-                            + " | maxPlayers="
-                            + server.getMaxPlayers()
-            );
-        }
-
-        return servers
+        return findByType(type)
                 .stream()
                 .filter(server ->
                         server.getState() == ServerState.ONLINE
                                 || server.getState() == ServerState.WAITING
                 )
                 .filter(server ->
-                        server.getPlayers() < server.getMaxPlayers()
+                        server.getPlayers()
+                                < server.getMaxPlayers()
                 )
-                .min((a, b) -> Integer.compare(
-                        a.getPlayers(),
-                        b.getPlayers()
-                ))
+                .min(
+                        (a, b) ->
+                                Integer.compare(
+                                        a.getPlayers(),
+                                        b.getPlayers()
+                                )
+                )
                 .orElse(null);
     }
 

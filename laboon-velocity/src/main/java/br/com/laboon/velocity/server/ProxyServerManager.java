@@ -16,19 +16,29 @@ public final class ProxyServerManager {
         this.registry = registry;
     }
 
-    public ServerInfo find(String name) {
+    public ServerInfo find(
+            String name
+    ) {
+
         return registry.find(name);
+    }
+
+    public List<ServerInfo> findAll() {
+
+        return registry.findAll();
     }
 
     public List<ServerInfo> findByType(
             ServerType type
     ) {
+
         return registry.findByType(type);
     }
 
     public ServerInfo findAvailable(
             ServerType type
     ) {
+
         return registry.findAvailable(type);
     }
 }

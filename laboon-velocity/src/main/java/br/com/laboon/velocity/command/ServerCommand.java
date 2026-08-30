@@ -46,11 +46,7 @@ public final class ServerCommand
 
         if (arguments.length == 0) {
 
-            player.sendMessage(
-                    net.kyori.adventure.text.Component.text(
-                            "Use: /server <servidor>"
-                    )
-            );
+            showServers(player);
 
             return;
         }
@@ -59,8 +55,7 @@ public final class ServerCommand
                 arguments[0];
 
         ServerInfo server =
-                serverSelector
-                        .find(serverName);
+                serverSelector.find(serverName);
 
         if (server == null) {
 
@@ -76,6 +71,41 @@ public final class ServerCommand
         connectionService.connect(
                 player,
                 server
+        );
+    }
+
+    private void showServers(
+            Player player
+    ) {
+
+        player.sendMessage(
+                net.kyori.adventure.text.Component.text(
+                        "§6§lServidores disponíveis"
+                )
+        );
+
+        for (ServerInfo server :
+                serverSelector.findAll()) {
+
+            player.sendMessage(
+                    net.kyori.adventure.text.Component.text(
+                            "§e"
+                                    + server.getName()
+                                    + " §7- §f"
+                                    + server.getPlayers()
+                                    + "/"
+                                    + server.getMaxPlayers()
+                                    + " §8["
+                                    + server.getState()
+                                    + "]"
+                    )
+            );
+        }
+
+        player.sendMessage(
+                net.kyori.adventure.text.Component.text(
+                        "§7Use §f/server <servidor> §7para conectar."
+                )
         );
     }
 }

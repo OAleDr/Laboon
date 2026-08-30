@@ -3,6 +3,8 @@ package br.com.laboon.velocity.server;
 import br.com.laboon.core.server.ServerInfo;
 import br.com.laboon.core.server.ServerType;
 
+import java.util.List;
+
 public final class ServerSelector {
 
     private final ProxyServerManager serverManager;
@@ -22,9 +24,8 @@ public final class ServerSelector {
 
     public ServerInfo findLobby() {
 
-        return serverManager.findAvailable(
-                ServerType.LOBBY
-        );
+        return serverManager
+                .findAvailable(ServerType.LOBBY);
     }
 
     public ServerInfo findGameServer(
@@ -35,4 +36,10 @@ public final class ServerSelector {
                 type
         );
     }
+
+    public List<ServerInfo> findAll() {
+
+        return serverManager.findAll();
+    }
+
 }
