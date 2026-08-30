@@ -2,16 +2,15 @@ package br.com.laboon.velocity.command;
 
 import br.com.laboon.core.server.ServerInfo;
 import br.com.laboon.core.server.ServerRole;
-import br.com.laboon.core.server.ServerState;
 import br.com.laboon.core.server.ServerType;
 import br.com.laboon.velocity.api.ClickableMessage;
-import br.com.laboon.velocity.player.PlayerManager;
 import br.com.laboon.velocity.server.ServerAvailabilityService;
 import br.com.laboon.velocity.server.ServerConnectionService;
 import br.com.laboon.velocity.server.ServerSelector;
 
 import com.velocitypowered.api.command.SimpleCommand;
 import com.velocitypowered.api.proxy.Player;
+
 import net.kyori.adventure.text.Component;
 
 import java.util.List;
@@ -19,21 +18,23 @@ import java.util.List;
 public final class ServerCommand
         implements SimpleCommand {
 
-    private final PlayerManager playerManager;
     private final ServerSelector serverSelector;
     private final ServerConnectionService connectionService;
     private final ServerAvailabilityService availabilityService;
 
     public ServerCommand(
-            PlayerManager playerManager,
             ServerSelector serverSelector,
             ServerConnectionService connectionService,
             ServerAvailabilityService availabilityService
     ) {
-        this.playerManager = playerManager;
-        this.serverSelector = serverSelector;
-        this.connectionService = connectionService;
-        this.availabilityService = availabilityService;
+        this.serverSelector =
+                serverSelector;
+
+        this.connectionService =
+                connectionService;
+
+        this.availabilityService =
+                availabilityService;
     }
 
     @Override
@@ -44,7 +45,7 @@ public final class ServerCommand
         if (!(invocation.source() instanceof Player player)) {
 
             invocation.source().sendMessage(
-                    net.kyori.adventure.text.Component.text(
+                    Component.text(
                             "Apenas jogadores podem utilizar este comando."
                     )
             );
@@ -66,13 +67,15 @@ public final class ServerCommand
                 arguments[0];
 
         ServerInfo server =
-                serverSelector.find(serverName);
+                serverSelector.find(
+                        serverName
+                );
 
         if (server == null) {
 
             player.sendMessage(
-                    net.kyori.adventure.text.Component.text(
-                            "Servidor não encontrado."
+                    Component.text(
+                            "§cServidor não encontrado."
                     )
             );
 
@@ -131,13 +134,16 @@ public final class ServerCommand
                 .toList();
     }
 
-    private void showServers(Player player) {
+    private void showServers(
+            Player player
+    ) {
 
         List<ServerInfo> servers =
                 serverSelector.findAll()
                         .stream()
                         .filter(server ->
-                                server.getRole() != ServerRole.GAME
+                                server.getRole()
+                                        == ServerRole.LOBBY
                         )
                         .toList();
 
@@ -147,12 +153,14 @@ public final class ServerCommand
                 )
         );
 
-        for (ServerType type : ServerType.values()) {
+        for (ServerType type :
+                ServerType.values()) {
 
             List<ServerInfo> typeServers =
                     servers.stream()
                             .filter(server ->
-                                    server.getType() == type
+                                    server.getType()
+                                            == type
                             )
                             .toList();
 
@@ -162,11 +170,14 @@ public final class ServerCommand
 
             player.sendMessage(
                     Component.text(
-                            "§e§l" + availabilityService.getTypeName(type)
+                            "§e§l"
+                                    + availabilityService
+                                    .getTypeName(type)
                     )
             );
 
-            for (ServerInfo server : typeServers) {
+            for (ServerInfo server :
+                    typeServers) {
 
                 sendServerEntry(
                         player,
@@ -181,9 +192,13 @@ public final class ServerCommand
             ServerInfo server
     ) {
 
-        boolean available = availabilityService.isAvailable(server);
+        boolean available =
+                availabilityService
+                        .isAvailable(server);
 
-        String status = availabilityService.getStatus(server);
+        String status =
+                availabilityService
+                        .getStatus(server);
 
         ClickableMessage message =
                 ClickableMessage
@@ -217,5 +232,4 @@ public final class ServerCommand
                 message.build()
         );
     }
-
 }

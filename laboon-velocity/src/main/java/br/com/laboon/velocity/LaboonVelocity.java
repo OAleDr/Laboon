@@ -275,7 +275,6 @@ public final class LaboonVelocity {
                                 .build(),
 
                         new ServerCommand(
-                                playerManager,
                                 serverSelector,
                                 connectionService,
                                 serverAvailabilityService
