@@ -1,16 +1,11 @@
 package br.com.laboon.velocity.listener;
 
-import br.com.laboon.core.server.ServerInfo;
-import br.com.laboon.velocity.server.ServerConnectionService;
+import br.com.laboon.core.server.ServerRole;
+import br.com.laboon.core.server.ServerType;
 import br.com.laboon.velocity.server.ServerFallbackService;
-import br.com.laboon.velocity.server.ServerSelector;
 
 import com.velocitypowered.api.event.Subscribe;
-import com.velocitypowered.api.event.connection.LoginEvent;
 import com.velocitypowered.api.event.connection.PostLoginEvent;
-import com.velocitypowered.api.proxy.Player;
-
-import net.kyori.adventure.text.Component;
 
 public final class ConnectionListener {
 
@@ -28,8 +23,10 @@ public final class ConnectionListener {
             PostLoginEvent event
     ) {
 
-        fallbackService.connectToLobby(
-                event.getPlayer()
+        fallbackService.connect(
+                event.getPlayer(),
+                ServerType.NETWORK,
+                ServerRole.LOBBY
         );
     }
 }

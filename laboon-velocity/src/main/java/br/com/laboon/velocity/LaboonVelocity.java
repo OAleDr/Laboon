@@ -10,9 +10,11 @@ import br.com.laboon.velocity.command.LaboonCommand;
 import br.com.laboon.velocity.command.ServerCommand;
 import br.com.laboon.velocity.config.VelocityConfig;
 import br.com.laboon.velocity.listener.ConnectionListener;
+import br.com.laboon.velocity.listener.ServerDisconnectListener;
 import br.com.laboon.velocity.listener.ServerListener;
 import br.com.laboon.velocity.messaging.VelocityMessageService;
 import br.com.laboon.velocity.player.PlayerManager;
+import br.com.laboon.velocity.player.PlayerServerService;
 import br.com.laboon.velocity.server.*;
 
 import com.google.inject.Inject;
@@ -65,7 +67,11 @@ public final class LaboonVelocity {
 
     private ServerFallbackService fallbackService;
 
+    private PlayerServerService playerServerService;
+
     private VelocityMessageService messageService;
+
+    private ServerCache serverCache;
 
     private ScheduledTask serverSyncTask;
 
@@ -152,18 +158,18 @@ public final class LaboonVelocity {
         playerManager = new PlayerManager(proxyServer);
         serverRegistry = new ServerRegistry(redisManager);
         serverManager = new ProxyServerManager( serverRegistry);
-        registrationService = new ServerRegistrationService( proxyServer, serverRegistry);
+        registrationService = new ServerRegistrationService(proxyServer, serverRegistry);
+        serverCache = new ServerCache();
         serverAvailabilityService = new ServerAvailabilityService();
-        serverRegistrySync = new ServerRegistrySync(serverRegistry, registrationService);
-        serverManager = new ProxyServerManager(serverRegistry);
+        serverRegistrySync = new ServerRegistrySync(serverRegistry, registrationService, serverCache);
         serverSelector = new ServerSelector(serverManager, serverAvailabilityService);
         connectionService = new ServerConnectionService(proxyServer, serverAvailabilityService);
-        registrationService = new ServerRegistrationService(proxyServer, serverRegistry);
+        playerServerService = new PlayerServerService(serverRegistry);
+
         fallbackService =
                 new ServerFallbackService(
                         serverSelector,
-                        connectionService,
-                        serverAvailabilityService
+                        connectionService
                 );
     }
 
@@ -298,6 +304,17 @@ public final class LaboonVelocity {
                         new ServerListener()
                 );
 
+        proxyServer
+                .getEventManager()
+                .register(
+                        this,
+                        new ServerDisconnectListener(
+                                serverRegistry,
+                                serverCache,
+                                fallbackService
+                        )
+                );
+
         logger.info(
                 "Listeners registrados."
         );
@@ -355,5 +372,13 @@ public final class LaboonVelocity {
 
     public ServerFallbackService getFallbackService() {
         return fallbackService;
+    }
+
+    public PlayerServerService getPlayerServerService() {
+        return playerServerService;
+    }
+
+    public ServerCache getServerCache() {
+        return serverCache;
     }
 }

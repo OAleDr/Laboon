@@ -37,10 +37,24 @@ public final class ServerSelector {
 
     public List<ServerInfo> findNetworkLobbies() {
 
-        return serverManager.findByTypeAndRole(
-                ServerType.NETWORK,
-                ServerRole.LOBBY
-        );
+        return serverManager
+                .findByTypeAndRole(
+                        ServerType.NETWORK,
+                        ServerRole.LOBBY
+                )
+                .stream()
+                .filter(server ->
+                        server.getPlayers()
+                                < server.getMaxPlayers()
+                )
+                .sorted(
+                        (a, b) ->
+                                Integer.compare(
+                                        a.getPlayers(),
+                                        b.getPlayers()
+                                )
+                )
+                .toList();
     }
 
     public List<ServerInfo> findGameLobbies(
@@ -74,6 +88,31 @@ public final class ServerSelector {
                 type,
                 ServerRole.LOBBY
         );
+    }
+
+    public List<ServerInfo> findAvailableServers(
+            ServerType type,
+            ServerRole role
+    ) {
+
+        return serverManager
+                .findByTypeAndRole(
+                        type,
+                        role
+                )
+                .stream()
+                .filter(server ->
+                        server.getPlayers()
+                                < server.getMaxPlayers()
+                )
+                .sorted(
+                        (a, b) ->
+                                Integer.compare(
+                                        a.getPlayers(),
+                                        b.getPlayers()
+                                )
+                )
+                .toList();
     }
 
     public List<ServerInfo> findAll() {

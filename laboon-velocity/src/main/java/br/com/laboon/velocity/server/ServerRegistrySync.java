@@ -4,54 +4,72 @@ import br.com.laboon.core.server.ServerInfo;
 import br.com.laboon.core.server.ServerRegistry;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 public final class ServerRegistrySync {
 
     private final ServerRegistry registry;
     private final ServerRegistrationService registrationService;
+    private final ServerCache serverCache;
 
     public ServerRegistrySync(
             ServerRegistry registry,
-            ServerRegistrationService registrationService
+            ServerRegistrationService registrationService,
+            ServerCache serverCache
     ) {
-        this.registry = registry;
+        this.registry =
+                registry;
+
         this.registrationService =
                 registrationService;
+
+        this.serverCache =
+                serverCache;
     }
 
     public void sync() {
 
-        Set<String> activeServers =
+        List<ServerInfo> servers =
+                registry.findAll();
+
+        Set<String> currentServers =
                 new HashSet<>();
 
-        for (ServerInfo server :
-                registry.findAll()) {
+        for (ServerInfo server : servers) {
 
-            activeServers.add(
+            if (server == null) {
+                continue;
+            }
+
+            currentServers.add(
                     server.getName()
             );
 
-            registrationService.register(
-                    server
-            );
+            serverCache.update(server);
+
+            registrationService.register(server);
         }
 
-        Set<String> registeredServers =
-                registrationService
-                        .getRegisteredNames();
+        removeOfflineServers(
+                currentServers
+        );
+    }
 
-        for (String registered :
-                registeredServers) {
+    private void removeOfflineServers(
+            Set<String> currentServers
+    ) {
 
-            if (!activeServers.contains(
-                    registered
-            )) {
+        Set<String> registered =
+                registrationService.getRegisteredNames();
 
-                registrationService.unregister(
-                        registered
-                );
+        for (String name : registered) {
+
+            if (currentServers.contains(name)) {
+                continue;
             }
+
+            registrationService.unregister(name);
         }
     }
 }

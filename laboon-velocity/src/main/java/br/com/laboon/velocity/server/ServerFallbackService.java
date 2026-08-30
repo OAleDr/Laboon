@@ -1,6 +1,8 @@
 package br.com.laboon.velocity.server;
 
 import br.com.laboon.core.server.ServerInfo;
+import br.com.laboon.core.server.ServerRole;
+import br.com.laboon.core.server.ServerType;
 
 import com.velocitypowered.api.proxy.Player;
 
@@ -12,35 +14,66 @@ public final class ServerFallbackService {
 
     private final ServerSelector serverSelector;
     private final ServerConnectionService connectionService;
-    private final ServerAvailabilityService availabilityService;
 
     public ServerFallbackService(
             ServerSelector serverSelector,
-            ServerConnectionService connectionService,
-            ServerAvailabilityService availabilityService
+            ServerConnectionService connectionService
     ) {
-        this.serverSelector = serverSelector;
-        this.connectionService = connectionService;
-        this.availabilityService = availabilityService;
+        this.serverSelector =
+                serverSelector;
+
+        this.connectionService =
+                connectionService;
     }
 
-    public void connectToLobby(
-            Player player
+    public void connect(
+            Player player,
+            ServerType type,
+            ServerRole role
+    ) {
+
+        connect(
+                player,
+                type,
+                role,
+                null
+        );
+    }
+
+    public void connect(
+            Player player,
+            ServerType type,
+            ServerRole role,
+            String excludedServer
     ) {
 
         List<ServerInfo> servers =
                 serverSelector
-                        .findNetworkLobbies()
+                        .findAvailableServers(
+                                type,
+                                role
+                        )
                         .stream()
-                        .filter(availabilityService::isAvailable)
-                        .sorted(
-                                (a, b) ->
-                                        Integer.compare(
-                                                a.getPlayers(),
-                                                b.getPlayers()
+                        .filter(server ->
+                                excludedServer == null
+                                        || !server
+                                        .getName()
+                                        .equalsIgnoreCase(
+                                                excludedServer
                                         )
                         )
                         .toList();
+
+        if (servers.isEmpty()) {
+
+            player.sendMessage(
+                    Component.text(
+                            "§cNenhum servidor disponível no momento."
+                    )
+            );
+
+            return;
+        }
 
         tryNext(
                 player,
@@ -57,9 +90,9 @@ public final class ServerFallbackService {
 
         if (index >= servers.size()) {
 
-            player.disconnect(
+            player.sendMessage(
                     Component.text(
-                            "§cNenhum Lobby disponível no momento."
+                            "§cNão foi possível conectar ao servidor."
                     )
             );
 
