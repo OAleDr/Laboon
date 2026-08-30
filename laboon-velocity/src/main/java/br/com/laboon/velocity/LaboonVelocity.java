@@ -61,6 +61,10 @@ public final class LaboonVelocity {
 
     private ProxyHeartbeat proxyHeartbeat;
 
+    private ServerAvailabilityService serverAvailabilityService;
+
+    private ServerFallbackService fallbackService;
+
     private VelocityMessageService messageService;
 
     private ScheduledTask serverSyncTask;
@@ -149,11 +153,18 @@ public final class LaboonVelocity {
         serverRegistry = new ServerRegistry(redisManager);
         serverManager = new ProxyServerManager( serverRegistry);
         registrationService = new ServerRegistrationService( proxyServer, serverRegistry);
+        serverAvailabilityService = new ServerAvailabilityService();
         serverRegistrySync = new ServerRegistrySync(serverRegistry, registrationService);
         serverManager = new ProxyServerManager(serverRegistry);
-        serverSelector = new ServerSelector(serverManager);
-        connectionService = new ServerConnectionService(proxyServer);
+        serverSelector = new ServerSelector(serverManager, serverAvailabilityService);
+        connectionService = new ServerConnectionService(proxyServer, serverAvailabilityService);
         registrationService = new ServerRegistrationService(proxyServer, serverRegistry);
+        fallbackService =
+                new ServerFallbackService(
+                        serverSelector,
+                        connectionService,
+                        serverAvailabilityService
+                );
     }
 
     private void setupMessaging() {
@@ -260,7 +271,8 @@ public final class LaboonVelocity {
                         new ServerCommand(
                                 playerManager,
                                 serverSelector,
-                                connectionService
+                                connectionService,
+                                serverAvailabilityService
                         )
                 );
 
@@ -275,9 +287,7 @@ public final class LaboonVelocity {
                 .getEventManager()
                 .register(
                         this,
-                        new ConnectionListener(
-                                serverSelector,
-                                connectionService
+                        new ConnectionListener(fallbackService
                         )
                 );
 
@@ -337,5 +347,13 @@ public final class LaboonVelocity {
 
     public ServerSelector getServerSelector() {
         return serverSelector;
+    }
+
+    public ServerAvailabilityService getServerAvailabilityService() {
+        return serverAvailabilityService;
+    }
+
+    public ServerFallbackService getFallbackService() {
+        return fallbackService;
     }
 }

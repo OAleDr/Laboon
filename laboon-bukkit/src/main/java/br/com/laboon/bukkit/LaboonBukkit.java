@@ -1,6 +1,9 @@
 package br.com.laboon.bukkit;
 
+import br.com.laboon.bukkit.config.RedisConfig;
+import br.com.laboon.bukkit.config.RedisConfigLoader;
 import br.com.laboon.bukkit.config.ServerConfig;
+import br.com.laboon.bukkit.config.ServerConfigLoader;
 import br.com.laboon.bukkit.server.ServerHeartbeat;
 import br.com.laboon.core.messaging.MessageBus;
 import br.com.laboon.core.messaging.RedisPublisher;
@@ -38,6 +41,8 @@ public final class LaboonBukkit extends JavaPlugin {
 
         setupMessaging();
 
+        saveDefaultConfig();
+
         startHeartbeat();
 
         getLogger().info(
@@ -51,10 +56,13 @@ public final class LaboonBukkit extends JavaPlugin {
                 "Conectando ao Redis..."
         );
 
+        RedisConfig config =
+                RedisConfigLoader.load(this);
+
         redisManager =
                 new RedisManager(
-                        "localhost",
-                        6379
+                        config.getHost(),
+                        config.getPort()
                 );
 
         if (!redisManager.isConnected()) {
@@ -63,7 +71,8 @@ public final class LaboonBukkit extends JavaPlugin {
                     "Não foi possível conectar ao Redis!"
             );
 
-            getServer().getPluginManager()
+            getServer()
+                    .getPluginManager()
                     .disablePlugin(this);
 
             return;
@@ -93,10 +102,11 @@ public final class LaboonBukkit extends JavaPlugin {
                 );
     }
 
+
     private void startHeartbeat() {
 
         ServerConfig config =
-                ServerConfig.lobby();
+                ServerConfigLoader.load(this);
 
         heartbeat =
                 new ServerHeartbeat(
@@ -111,6 +121,11 @@ public final class LaboonBukkit extends JavaPlugin {
         getLogger().info(
                 "Heartbeat iniciado: "
                         + config.getServerName()
+                        + " ["
+                        + config.getServerType()
+                        + "/"
+                        + config.getServerRole()
+                        + "]"
         );
     }
 

@@ -19,6 +19,7 @@ class ServerRegistryTest {
         ServerInfo server = new ServerInfo(
                 "TEST-01",
                 ServerType.BEDWARS,
+                ServerRole.LOBBY,
                 "127.0.0.1",
                 25571,
                 8

@@ -21,6 +21,7 @@ public final class ServerRepository {
         redis.hset(key, Map.of(
                 "name", server.getName(),
                 "type", server.getType().name(),
+                "role", server.getRole().name(),
                 "host", server.getHost(),
                 "port", String.valueOf(server.getPort()),
                 "maxPlayers", String.valueOf(server.getMaxPlayers()),
@@ -64,6 +65,7 @@ public final class ServerRepository {
         ServerInfo server = new ServerInfo(
                 data.get("name"),
                 ServerType.valueOf(data.get("type")),
+                ServerRole.valueOf(data.get("role")),
                 data.get("host"),
                 Integer.parseInt(data.get("port")),
                 Integer.parseInt(data.get("maxPlayers"))
@@ -97,10 +99,14 @@ public final class ServerRepository {
     }
 
     public ServerInfo findAvailable(
-            ServerType type
+            ServerType type,
+            ServerRole role
     ) {
 
-        return findByType(type)
+        return findByTypeAndRole(
+                type,
+                role
+        )
                 .stream()
                 .filter(server ->
                         server.getState() == ServerState.ONLINE
@@ -119,6 +125,65 @@ public final class ServerRepository {
                 )
                 .orElse(null);
     }
+
+    public List<ServerInfo> findByRole(
+            ServerRole role
+    ) {
+
+        List<ServerInfo> servers =
+                new ArrayList<>();
+
+        for (String key :
+                redis.keys("laboon:server:*")) {
+
+            String name =
+                    key.substring(
+                            "laboon:server:".length()
+                    );
+
+            ServerInfo server =
+                    findByName(name);
+
+            if (server != null &&
+                    server.getRole() == role) {
+
+                servers.add(server);
+            }
+        }
+
+        return servers;
+    }
+
+    public List<ServerInfo> findByTypeAndRole(
+            ServerType type,
+            ServerRole role
+    ) {
+
+        List<ServerInfo> servers =
+                new ArrayList<>();
+
+        for (String key :
+                redis.keys("laboon:server:*")) {
+
+            String name =
+                    key.substring(
+                            "laboon:server:".length()
+                    );
+
+            ServerInfo server =
+                    findByName(name);
+
+            if (server != null
+                    && server.getType() == type
+                    && server.getRole() == role) {
+
+                servers.add(server);
+            }
+        }
+
+        return servers;
+    }
+
 
     public void delete(String name) {
         redis.del("laboon:server:" + name);

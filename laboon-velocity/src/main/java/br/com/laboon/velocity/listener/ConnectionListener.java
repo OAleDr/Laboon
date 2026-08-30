@@ -2,6 +2,7 @@ package br.com.laboon.velocity.listener;
 
 import br.com.laboon.core.server.ServerInfo;
 import br.com.laboon.velocity.server.ServerConnectionService;
+import br.com.laboon.velocity.server.ServerFallbackService;
 import br.com.laboon.velocity.server.ServerSelector;
 
 import com.velocitypowered.api.event.Subscribe;
@@ -13,45 +14,22 @@ import net.kyori.adventure.text.Component;
 
 public final class ConnectionListener {
 
-    private final ServerSelector serverSelector;
-    private final ServerConnectionService connectionService;
+    private final ServerFallbackService fallbackService;
 
     public ConnectionListener(
-            ServerSelector serverSelector,
-            ServerConnectionService connectionService
+            ServerFallbackService fallbackService
     ) {
-        this.serverSelector =
-                serverSelector;
-
-        this.connectionService =
-                connectionService;
+        this.fallbackService =
+                fallbackService;
     }
 
     @Subscribe
-    public void onLogin(
+    public void onPostLogin(
             PostLoginEvent event
     ) {
 
-        Player player =
-                event.getPlayer();
-
-        ServerInfo lobby =
-                serverSelector.findLobby();
-
-        if (lobby == null) {
-
-            player.disconnect(
-                    Component.text(
-                            "Nenhum Lobby disponível no momento."
-                    )
-            );
-
-            return;
-        }
-
-        connectionService.connect(
-                player,
-                lobby
+        fallbackService.connectToLobby(
+                event.getPlayer()
         );
     }
 }

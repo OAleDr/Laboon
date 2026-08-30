@@ -1,0 +1,12 @@
+server:
+  name: LOBBY-01
+  type: NETWORK
+  role: LOBBY
+
+  host: 127.0.0.1
+  port: 25566
+  max-players: 100
+
+redis:
+  host: localhost
+  port: 6379

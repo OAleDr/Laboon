@@ -4,6 +4,7 @@ public final class ServerInfo {
 
     private final String name;
     private final ServerType type;
+    private ServerRole role;
     private final String host;
     private final int port;
     private final int maxPlayers;
@@ -14,12 +15,14 @@ public final class ServerInfo {
     public ServerInfo(
             String name,
             ServerType type,
+            ServerRole role,
             String host,
             int port,
             int maxPlayers
     ) {
         this.name = name;
         this.type = type;
+        this.role = role;
         this.host = host;
         this.port = port;
         this.maxPlayers = maxPlayers;
@@ -33,6 +36,10 @@ public final class ServerInfo {
 
     public ServerType getType() {
         return type;
+    }
+
+    public ServerRole getRole() {
+        return role;
     }
 
     public String getHost() {
@@ -49,6 +56,10 @@ public final class ServerInfo {
 
     public ServerState getState() {
         return state;
+    }
+
+    public void setRole(ServerRole role) {
+        this.role = role;
     }
 
     public void setState(ServerState state) {

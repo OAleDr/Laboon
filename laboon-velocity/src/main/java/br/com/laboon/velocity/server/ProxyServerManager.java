@@ -1,8 +1,6 @@
 package br.com.laboon.velocity.server;
 
-import br.com.laboon.core.server.ServerInfo;
-import br.com.laboon.core.server.ServerRegistry;
-import br.com.laboon.core.server.ServerType;
+import br.com.laboon.core.server.*;
 
 import java.util.List;
 
@@ -36,9 +34,21 @@ public final class ProxyServerManager {
     }
 
     public ServerInfo findAvailable(
-            ServerType type
+            ServerType type,
+            ServerRole role
     ) {
 
-        return registry.findAvailable(type);
+        return registry.findAvailable(type, role);
     }
+
+    public List<ServerInfo> findByTypeAndRole(
+            ServerType type,
+            ServerRole role
+    ) {
+        return registry.findByTypeAndRole(
+                type,
+                role
+        );
+    }
+
 }

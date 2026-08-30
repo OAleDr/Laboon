@@ -1,31 +1,55 @@
 package br.com.laboon.bukkit.config;
 
+import br.com.laboon.core.server.ServerRole;
+import br.com.laboon.core.server.ServerType;
+
 public final class ServerConfig {
 
     private final String serverName;
-    private final String serverType;
+    private final ServerType serverType;
+    private final ServerRole serverRole;
+
+    private final String host;
+    private final int port;
+    private final int maxPlayers;
 
     public ServerConfig(
             String serverName,
-            String serverType
+            ServerType serverType,
+            ServerRole serverRole,
+            String host,
+            int port,
+            int maxPlayers
     ) {
         this.serverName = serverName;
         this.serverType = serverType;
+        this.serverRole = serverRole;
+        this.host = host;
+        this.port = port;
+        this.maxPlayers = maxPlayers;
     }
 
     public String getServerName() {
         return serverName;
     }
 
-    public String getServerType() {
+    public ServerType getServerType() {
         return serverType;
     }
 
-    public static ServerConfig lobby() {
+    public ServerRole getServerRole() {
+        return serverRole;
+    }
 
-        return new ServerConfig(
-                "LOBBY-01",
-                "LOBBY"
-        );
+    public String getHost() {
+        return host;
+    }
+
+    public int getPort() {
+        return port;
+    }
+
+    public int getMaxPlayers() {
+        return maxPlayers;
     }
 }

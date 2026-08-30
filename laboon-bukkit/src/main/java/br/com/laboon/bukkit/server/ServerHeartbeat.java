@@ -4,14 +4,16 @@ import br.com.laboon.bukkit.config.ServerConfig;
 import br.com.laboon.core.messaging.Channels;
 import br.com.laboon.core.messaging.MessageBus;
 import br.com.laboon.core.redis.RedisManager;
+import br.com.laboon.core.server.*;
 
-import br.com.laboon.core.server.ServerInfo;
-import br.com.laboon.core.server.ServerInfoSerializer;
-import br.com.laboon.core.server.ServerState;
-import br.com.laboon.core.server.ServerType;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.util.Map;
+
 public final class ServerHeartbeat {
+
+    private static final long HEARTBEAT_INTERVAL = 100L;
+    private static final int SERVER_TTL = 15;
 
     private final JavaPlugin plugin;
     private final RedisManager redisManager;
@@ -39,114 +41,54 @@ public final class ServerHeartbeat {
                 .runTaskTimerAsynchronously(
                         plugin,
                         this::update,
-                        100L,
-                        100L
+                        HEARTBEAT_INTERVAL,
+                        HEARTBEAT_INTERVAL
                 );
     }
 
     private void update() {
 
-        String serverName =
-                config.getServerName();
-
-        String host =
-                "127.0.0.1";
-
-        int port =
-                plugin.getServer().getPort();
-
-        int players =
-                plugin.getServer()
-                        .getOnlinePlayers()
-                        .size();
-
-        int maxPlayers =
-                100;
-
-        ServerType type =
-                ServerType.valueOf(
-                        config.getServerType()
-                                .toUpperCase()
-                );
-
         ServerInfo server =
-                new ServerInfo(
-                        serverName,
-                        type,
-                        host,
-                        port,
-                        maxPlayers
-                );
-
-        server.setPlayers(players);
-
-        server.setState(
-                ServerState.ONLINE
-        );
+                createServerInfo();
 
         String key =
                 "laboon:server:"
-                        + serverName;
+                        + server.getName();
 
         redisManager
                 .getJedis()
                 .hset(
                         key,
-                        "name",
-                        server.getName()
-                );
+                        Map.of(
+                                "name",
+                                server.getName(),
 
-        redisManager
-                .getJedis()
-                .hset(
-                        key,
-                        "type",
-                        server.getType().name()
-                );
+                                "type",
+                                server.getType().name(),
 
-        redisManager
-                .getJedis()
-                .hset(
-                        key,
-                        "state",
-                        server.getState().name()
-                );
+                                "role",
+                                server.getRole().name(),
 
-        redisManager
-                .getJedis()
-                .hset(
-                        key,
-                        "host",
-                        server.getHost()
-                );
+                                "state",
+                                server.getState().name(),
 
-        redisManager
-                .getJedis()
-                .hset(
-                        key,
-                        "port",
-                        String.valueOf(
-                                server.getPort()
-                        )
-                );
+                                "host",
+                                server.getHost(),
 
-        redisManager
-                .getJedis()
-                .hset(
-                        key,
-                        "players",
-                        String.valueOf(
-                                server.getPlayers()
-                        )
-                );
+                                "port",
+                                String.valueOf(
+                                        server.getPort()
+                                ),
 
-        redisManager
-                .getJedis()
-                .hset(
-                        key,
-                        "maxPlayers",
-                        String.valueOf(
-                                server.getMaxPlayers()
+                                "players",
+                                String.valueOf(
+                                        server.getPlayers()
+                                ),
+
+                                "maxPlayers",
+                                String.valueOf(
+                                        server.getMaxPlayers()
+                                )
                         )
                 );
 
@@ -154,7 +96,7 @@ public final class ServerHeartbeat {
                 .getJedis()
                 .expire(
                         key,
-                        15
+                        SERVER_TTL
                 );
 
         messageBus.publish(
@@ -164,6 +106,38 @@ public final class ServerHeartbeat {
                 )
         );
     }
+
+    private ServerInfo createServerInfo() {
+
+        ServerType type =
+                config.getServerType();
+
+        ServerRole role =
+                config.getServerRole();
+
+        ServerInfo server =
+                new ServerInfo(
+                        config.getServerName(),
+                        type,
+                        role,
+                        config.getHost(),
+                        config.getPort(),
+                        config.getMaxPlayers()
+                );
+
+        server.setPlayers(
+                plugin.getServer()
+                        .getOnlinePlayers()
+                        .size()
+        );
+
+        server.setState(
+                ServerState.ONLINE
+        );
+
+        return server;
+    }
+
     public void stop() {
 
         redisManager

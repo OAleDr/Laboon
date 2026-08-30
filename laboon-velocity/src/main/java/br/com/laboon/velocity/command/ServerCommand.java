@@ -1,12 +1,20 @@
 package br.com.laboon.velocity.command;
 
 import br.com.laboon.core.server.ServerInfo;
+import br.com.laboon.core.server.ServerRole;
+import br.com.laboon.core.server.ServerState;
+import br.com.laboon.core.server.ServerType;
+import br.com.laboon.velocity.api.ClickableMessage;
 import br.com.laboon.velocity.player.PlayerManager;
+import br.com.laboon.velocity.server.ServerAvailabilityService;
 import br.com.laboon.velocity.server.ServerConnectionService;
 import br.com.laboon.velocity.server.ServerSelector;
 
 import com.velocitypowered.api.command.SimpleCommand;
 import com.velocitypowered.api.proxy.Player;
+import net.kyori.adventure.text.Component;
+
+import java.util.List;
 
 public final class ServerCommand
         implements SimpleCommand {
@@ -14,15 +22,18 @@ public final class ServerCommand
     private final PlayerManager playerManager;
     private final ServerSelector serverSelector;
     private final ServerConnectionService connectionService;
+    private final ServerAvailabilityService availabilityService;
 
     public ServerCommand(
             PlayerManager playerManager,
             ServerSelector serverSelector,
-            ServerConnectionService connectionService
+            ServerConnectionService connectionService,
+            ServerAvailabilityService availabilityService
     ) {
         this.playerManager = playerManager;
         this.serverSelector = serverSelector;
         this.connectionService = connectionService;
+        this.availabilityService = availabilityService;
     }
 
     @Override
@@ -68,44 +79,143 @@ public final class ServerCommand
             return;
         }
 
+        if (!availabilityService.isAvailable(server)) {
+
+            player.sendMessage(
+                    Component.text(
+                            "§cEste servidor não está disponível no momento."
+                    )
+            );
+
+            return;
+        }
+
         connectionService.connect(
                 player,
-                server
+                server,
+                () -> player.sendMessage(
+                        Component.text(
+                                "§cNão foi possível conectar ao servidor."
+                        )
+                )
         );
     }
 
-    private void showServers(
-            Player player
+    @Override
+    public List<String> suggest(
+            Invocation invocation
     ) {
 
+        String[] arguments =
+                invocation.arguments();
+
+        if (arguments.length > 1) {
+            return List.of();
+        }
+
+        String input =
+                arguments.length == 0
+                        ? ""
+                        : arguments[0].toLowerCase();
+
+        return serverSelector
+                .findAll()
+                .stream()
+                .filter(availabilityService::isAvailable)
+                .map(ServerInfo::getName)
+                .filter(name ->
+                        name.toLowerCase()
+                                .startsWith(input)
+                )
+                .sorted()
+                .toList();
+    }
+
+    private void showServers(Player player) {
+
+        List<ServerInfo> servers =
+                serverSelector.findAll()
+                        .stream()
+                        .filter(server ->
+                                server.getRole() != ServerRole.GAME
+                        )
+                        .toList();
+
         player.sendMessage(
-                net.kyori.adventure.text.Component.text(
-                        "§6§lServidores disponíveis"
+                Component.text(
+                        "§6§l        LABOON NETWORK"
                 )
         );
 
-        for (ServerInfo server :
-                serverSelector.findAll()) {
+        for (ServerType type : ServerType.values()) {
+
+            List<ServerInfo> typeServers =
+                    servers.stream()
+                            .filter(server ->
+                                    server.getType() == type
+                            )
+                            .toList();
+
+            if (typeServers.isEmpty()) {
+                continue;
+            }
 
             player.sendMessage(
-                    net.kyori.adventure.text.Component.text(
-                            "§e"
-                                    + server.getName()
-                                    + " §7- §f"
-                                    + server.getPlayers()
-                                    + "/"
-                                    + server.getMaxPlayers()
-                                    + " §8["
-                                    + server.getState()
-                                    + "]"
+                    Component.text(
+                            "§e§l" + availabilityService.getTypeName(type)
                     )
             );
+
+            for (ServerInfo server : typeServers) {
+
+                sendServerEntry(
+                        player,
+                        server
+                );
+            }
+        }
+    }
+
+    private void sendServerEntry(
+            Player player,
+            ServerInfo server
+    ) {
+
+        boolean available = availabilityService.isAvailable(server);
+
+        String status = availabilityService.getStatus(server);
+
+        ClickableMessage message =
+                ClickableMessage
+                        .text(
+                                "§7  "
+                                        + server.getName()
+                                        + " §f"
+                                        + server.getPlayers()
+                                        + "/"
+                                        + server.getMaxPlayers()
+                                        + " "
+                                        + status
+                        )
+                        .hover(
+                                available
+                                        ? "§eClique para conectar em "
+                                        + server.getName()
+                                        : "§7Servidor indisponível."
+                        );
+
+        if (available) {
+
+            message =
+                    message.clickCommand(
+                            "/server "
+                                    + server.getName()
+                    );
         }
 
         player.sendMessage(
-                net.kyori.adventure.text.Component.text(
-                        "§7Use §f/server <servidor> §7para conectar."
-                )
+                message.build()
         );
     }
+
 }

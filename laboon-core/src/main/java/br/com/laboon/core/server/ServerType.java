@@ -2,7 +2,7 @@ package br.com.laboon.core.server;
 
 public enum ServerType {
 
-    LOBBY,
+    NETWORK,
     BEDWARS,
     SKYWARS,
     HARDCORE_GAMES,

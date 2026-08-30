@@ -16,6 +16,7 @@ class ServerHeartbeatTest {
         ServerInfo server = new ServerInfo(
                 "HEARTBEAT-TEST",
                 ServerType.BEDWARS,
+                ServerRole.LOBBY,
                 "127.0.0.1",
                 25571,
                 8
