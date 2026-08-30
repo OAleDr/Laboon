@@ -13,10 +13,7 @@ import br.com.laboon.velocity.listener.ConnectionListener;
 import br.com.laboon.velocity.listener.ServerListener;
 import br.com.laboon.velocity.messaging.VelocityMessageService;
 import br.com.laboon.velocity.player.PlayerManager;
-import br.com.laboon.velocity.server.ProxyHeartbeat;
-import br.com.laboon.velocity.server.ProxyServerManager;
-import br.com.laboon.velocity.server.ServerConnectionService;
-import br.com.laboon.velocity.server.ServerSelector;
+import br.com.laboon.velocity.server.*;
 
 import com.google.inject.Inject;
 
@@ -27,7 +24,10 @@ import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
 import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.proxy.ProxyServer;
 
+import com.velocitypowered.api.scheduler.ScheduledTask;
 import org.slf4j.Logger;
+
+import java.util.concurrent.TimeUnit;
 
 @Plugin(
         id = "laboon",
@@ -51,11 +51,19 @@ public final class LaboonVelocity {
 
     private ServerConnectionService connectionService;
 
+    private ServerRegistrationService registrationService;
+
+    private ServerRegistry serverRegistry;
+
+    private ServerRegistrySync serverRegistrySync;
+
     private ServerSelector serverSelector;
 
     private ProxyHeartbeat proxyHeartbeat;
 
     private VelocityMessageService messageService;
+
+    private ScheduledTask serverSyncTask;
 
     @Inject
     public LaboonVelocity(
@@ -91,6 +99,10 @@ public final class LaboonVelocity {
 
         setupManagers();
 
+        registerServers();
+
+        startServerSync();
+
         setupMessaging();
 
         setupHeartbeat(config);
@@ -98,6 +110,7 @@ public final class LaboonVelocity {
         registerCommands();
 
         registerListeners();
+
 
         logger.info(
                 "Laboon inicializado com sucesso!"
@@ -132,19 +145,15 @@ public final class LaboonVelocity {
 
     private void setupManagers() {
 
-        playerManager =
-                new PlayerManager(
-                        proxyServer
-                );
-
-        ServerRegistry registry =
-                new ServerRegistry(
-                        redisManager
-                );
-
-        serverManager = new ProxyServerManager(registry);
+        playerManager = new PlayerManager(proxyServer);
+        serverRegistry = new ServerRegistry(redisManager);
+        serverManager = new ProxyServerManager( serverRegistry);
+        registrationService = new ServerRegistrationService( proxyServer, serverRegistry);
+        serverRegistrySync = new ServerRegistrySync(serverRegistry, registrationService);
+        serverManager = new ProxyServerManager(serverRegistry);
         serverSelector = new ServerSelector(serverManager);
         connectionService = new ServerConnectionService(proxyServer);
+        registrationService = new ServerRegistrationService(proxyServer, serverRegistry);
     }
 
     private void setupMessaging() {
@@ -167,7 +176,8 @@ public final class LaboonVelocity {
 
         messageService =
                 new VelocityMessageService(
-                        messageBus
+                        messageBus,
+                        registrationService
                 );
 
         messageService.listen();
@@ -191,6 +201,37 @@ public final class LaboonVelocity {
 
         logger.info(
                 "Proxy Heartbeat iniciado."
+        );
+    }
+    private void registerServers() {
+
+        logger.info(
+                "Registrando servidores do Redis..."
+        );
+
+        registrationService.registerAll();
+
+        logger.info(
+                "Servidores registrados."
+        );
+    }
+
+    private void startServerSync() {
+
+        serverSyncTask = proxyServer
+                        .getScheduler()
+                        .buildTask(
+                                this,
+                                () -> serverRegistrySync.sync()
+                        )
+                        .repeat(
+                                5,
+                                TimeUnit.SECONDS
+                        )
+                        .schedule();
+
+        logger.info(
+                "Sincronização de servidores iniciada."
         );
     }
 
@@ -260,6 +301,10 @@ public final class LaboonVelocity {
         logger.info(
                 "Desligando Laboon..."
         );
+
+        if (serverSyncTask != null) {
+            serverSyncTask.cancel();
+        }
 
         if (proxyHeartbeat != null) {
             proxyHeartbeat.stop();

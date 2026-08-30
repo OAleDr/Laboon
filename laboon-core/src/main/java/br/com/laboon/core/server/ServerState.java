@@ -6,5 +6,6 @@ public enum ServerState {
     WAITING,
     INGAME,
     ENDING,
-    OFFLINE
+    OFFLINE,
+    ONLINE
 }

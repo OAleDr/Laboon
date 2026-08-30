@@ -9,4 +9,5 @@ public final class Channels {
     public static final String PLAYER = "laboon:player";
     public static final String PARTY = "laboon:party";
     public static final String TEAM = "laboon:team";
+    public static final String SERVER_INFO = "server-info";
 }

@@ -2,6 +2,9 @@ package br.com.laboon.bukkit;
 
 import br.com.laboon.bukkit.config.ServerConfig;
 import br.com.laboon.bukkit.server.ServerHeartbeat;
+import br.com.laboon.core.messaging.MessageBus;
+import br.com.laboon.core.messaging.RedisPublisher;
+import br.com.laboon.core.messaging.RedisSubscriber;
 import br.com.laboon.core.redis.RedisManager;
 
 import org.bukkit.plugin.java.JavaPlugin;
@@ -11,6 +14,7 @@ public final class LaboonBukkit extends JavaPlugin {
     private static LaboonBukkit instance;
 
     private RedisManager redisManager;
+    private MessageBus messageBus;
     private ServerHeartbeat heartbeat;
 
     @Override
@@ -31,6 +35,8 @@ public final class LaboonBukkit extends JavaPlugin {
         );
 
         connectRedis();
+
+        setupMessaging();
 
         startHeartbeat();
 
@@ -68,6 +74,25 @@ public final class LaboonBukkit extends JavaPlugin {
         );
     }
 
+    private void setupMessaging() {
+
+        RedisPublisher publisher =
+                new RedisPublisher(
+                        redisManager
+                );
+
+        RedisSubscriber subscriber =
+                new RedisSubscriber(
+                        redisManager
+                );
+
+        messageBus =
+                new MessageBus(
+                        publisher,
+                        subscriber
+                );
+    }
+
     private void startHeartbeat() {
 
         ServerConfig config =
@@ -77,7 +102,8 @@ public final class LaboonBukkit extends JavaPlugin {
                 new ServerHeartbeat(
                         this,
                         redisManager,
-                        config
+                        config,
+                        messageBus
                 );
 
         heartbeat.start();

@@ -28,6 +28,10 @@ public final class ServerRegistry {
         return repository.findAvailable(type);
     }
 
+    public List<ServerInfo> findAll() {
+        return repository.findAll();
+    }
+
     public void unregister(String name) {
         repository.delete(name);
     }

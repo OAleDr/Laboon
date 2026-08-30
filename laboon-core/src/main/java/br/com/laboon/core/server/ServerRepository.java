@@ -30,6 +30,28 @@ public final class ServerRepository {
         redis.expire(key, 15);
     }
 
+    public List<ServerInfo> findAll() {
+
+        List<ServerInfo> servers = new ArrayList<>();
+
+        for (String key : redis.keys("laboon:server:*")) {
+
+            String name =
+                    key.substring(
+                            "laboon:server:".length()
+                    );
+
+            ServerInfo server =
+                    findByName(name);
+
+            if (server != null) {
+                servers.add(server);
+            }
+        }
+
+        return servers;
+    }
+
     public ServerInfo findByName(String name) {
         String key = "laboon:server:" + name;
 
@@ -75,10 +97,44 @@ public final class ServerRepository {
     }
 
     public ServerInfo findAvailable(ServerType type) {
-        return findByType(type)
+
+        List<ServerInfo> servers = findByType(type);
+
+        System.out.println(
+                "[Laboon] Procurando servidor do tipo: "
+                        + type
+        );
+
+        System.out.println(
+                "[Laboon] Servidores encontrados: "
+                        + servers.size()
+        );
+
+        for (ServerInfo server : servers) {
+
+            System.out.println(
+                    "[Laboon] Server: "
+                            + server.getName()
+                            + " | type="
+                            + server.getType()
+                            + " | state="
+                            + server.getState()
+                            + " | players="
+                            + server.getPlayers()
+                            + " | maxPlayers="
+                            + server.getMaxPlayers()
+            );
+        }
+
+        return servers
                 .stream()
-                .filter(server -> server.getState() == ServerState.WAITING)
-                .filter(server -> server.getPlayers() < server.getMaxPlayers())
+                .filter(server ->
+                        server.getState() == ServerState.ONLINE
+                                || server.getState() == ServerState.WAITING
+                )
+                .filter(server ->
+                        server.getPlayers() < server.getMaxPlayers()
+                )
                 .min((a, b) -> Integer.compare(
                         a.getPlayers(),
                         b.getPlayers()

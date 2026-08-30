@@ -1,5 +1,6 @@
 package br.com.laboon.core.server;
 
+import br.com.laboon.core.messaging.MessageBus;
 import br.com.laboon.core.redis.RedisManager;
 
 import java.util.concurrent.Executors;
@@ -10,6 +11,7 @@ public final class ServerHeartbeat {
 
     private final ServerInfo server;
     private final ServerRegistry registry;
+
 
     private final ScheduledExecutorService scheduler =
             Executors.newSingleThreadScheduledExecutor();
