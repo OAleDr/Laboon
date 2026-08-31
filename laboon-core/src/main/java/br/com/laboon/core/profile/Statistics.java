@@ -12,6 +12,7 @@ public final class Statistics {
     public Statistics(String game) {
 
         if (game == null || game.isBlank()) {
+
             throw new IllegalArgumentException("O nome do jogo não pode ser vazio.");
         }
 
@@ -22,6 +23,12 @@ public final class Statistics {
         return game;
     }
 
+    /*
+     * =========================
+     * VALORES GENÉRICOS
+     * =========================
+     */
+
     public long get(String key) {
 
         return values.getOrDefault(key, 0L);
@@ -29,7 +36,7 @@ public final class Statistics {
 
     public void set(String key, long value) {
 
-        values.put(key, value);
+        values.put(key, Math.max(0L, value));
     }
 
     public void add(String key, long amount) {
@@ -43,9 +50,145 @@ public final class Statistics {
 
             long value = current == null ? 0L : current;
 
-            return value - amount;
+            return Math.max(0L, value - amount);
         });
     }
+
+    /*
+     * =========================
+     * KILLS
+     * =========================
+     */
+
+    public long getKills() {
+
+        return get("kills");
+    }
+
+    public void setKills(long kills) {
+
+        set("kills", kills);
+    }
+
+    public void addKill() {
+
+        addKill(1);
+    }
+
+    public void addKill(long amount) {
+
+        add("kills", amount);
+    }
+
+    /*
+     * =========================
+     * DEATHS
+     * =========================
+     */
+
+    public long getDeaths() {
+
+        return get("deaths");
+    }
+
+    public void setDeaths(long deaths) {
+
+        set("deaths", deaths);
+    }
+
+    public void addDeath() {
+
+        addDeath(1);
+    }
+
+    public void addDeath(long amount) {
+
+        add("deaths", amount);
+    }
+
+    /*
+     * =========================
+     * WINS
+     * =========================
+     */
+
+    public long getWins() {
+
+        return get("wins");
+    }
+
+    public void setWins(long wins) {
+
+        set("wins", wins);
+    }
+
+    public void addWin() {
+
+        addWin(1);
+    }
+
+    public void addWin(long amount) {
+
+        add("wins", amount);
+    }
+
+    /*
+     * =========================
+     * LOSSES
+     * =========================
+     */
+
+    public long getLosses() {
+
+        return get("losses");
+    }
+
+    public void setLosses(long losses) {
+
+        set("losses", losses);
+    }
+
+    public void addLoss() {
+
+        addLoss(1);
+    }
+
+    public void addLoss(long amount) {
+
+        add("losses", amount);
+    }
+
+    /*
+     * =========================
+     * PARTIDAS
+     * =========================
+     */
+
+    public long getGamesPlayed() {
+
+        return get("games_played");
+    }
+
+    public void setGamesPlayed(long games) {
+
+        set("games_played", games);
+    }
+
+    public void addGamePlayed() {
+
+        addGamePlayed(1);
+    }
+
+    public void addGamePlayed(long amount) {
+
+        add("games_played", amount);
+    }
+
+    /*
+     * =========================
+     * GET ALL
+     * =========================
+     */
 
     public Map<String, Long> getAll() {
 
