@@ -76,16 +76,60 @@ public final class PlayerProfile {
         return account;
     }
 
+    /*
+     * =========================
+     * ESTATÍSTICAS - GERAL
+     * =========================
+     */
+
     public Statistics getStatistics(String game) {
 
-        String normalized = game.trim().toLowerCase();
-
-        return statistics.computeIfAbsent(normalized, key -> statisticsRepository.find(getUniqueId(), key));
+        return getStatistics(game, null);
     }
+
+    /*
+     * =========================
+     * ESTATÍSTICAS - MODO
+     * =========================
+     */
+
+    public Statistics getStatistics(String game, String mode) {
+
+        String normalizedGame = game.trim().toLowerCase();
+
+        String normalizedMode = mode == null || mode.isBlank() ? null : mode.trim().toLowerCase();
+
+        String cacheKey = normalizedMode == null ? normalizedGame : normalizedGame + ":" + normalizedMode;
+
+        return statistics.computeIfAbsent(cacheKey, key -> statisticsRepository.find(getUniqueId(), normalizedGame, normalizedMode));
+    }
+
+    /*
+     * =========================
+     * SALVAR - GERAL
+     * =========================
+     */
 
     public void saveStatistics(String game) {
 
-        Statistics stats = statistics.get(game.trim().toLowerCase());
+        saveStatistics(game, null);
+    }
+
+    /*
+     * =========================
+     * SALVAR - MODO
+     * =========================
+     */
+
+    public void saveStatistics(String game, String mode) {
+
+        String normalizedGame = game.trim().toLowerCase();
+
+        String normalizedMode = mode == null || mode.isBlank() ? null : mode.trim().toLowerCase();
+
+        String cacheKey = normalizedMode == null ? normalizedGame : normalizedGame + ":" + normalizedMode;
+
+        Statistics stats = statistics.get(cacheKey);
 
         if (stats == null) {
             return;
@@ -93,6 +137,12 @@ public final class PlayerProfile {
 
         statisticsRepository.save(getUniqueId(), stats);
     }
+
+    /*
+     * =========================
+     * SALVAR TUDO
+     * =========================
+     */
 
     public void saveAllStatistics() {
 

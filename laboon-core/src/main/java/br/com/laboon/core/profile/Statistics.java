@@ -7,9 +7,16 @@ public final class Statistics {
 
     private final String game;
 
+    private final String mode;
+
     private final Map<String, Long> values = new ConcurrentHashMap<>();
 
     public Statistics(String game) {
+
+        this(game, null);
+    }
+
+    public Statistics(String game, String mode) {
 
         if (game == null || game.isBlank()) {
 
@@ -17,10 +24,30 @@ public final class Statistics {
         }
 
         this.game = game.trim().toLowerCase();
+
+        if (mode == null || mode.isBlank()) {
+
+            this.mode = null;
+
+        } else {
+
+            this.mode = mode.trim().toLowerCase();
+        }
     }
 
     public String getGame() {
+
         return game;
+    }
+
+    public String getMode() {
+
+        return mode;
+    }
+
+    public boolean hasMode() {
+
+        return mode != null;
     }
 
     /*
@@ -41,10 +68,18 @@ public final class Statistics {
 
     public void add(String key, long amount) {
 
+        if (amount <= 0) {
+            return;
+        }
+
         values.merge(key, amount, Long::sum);
     }
 
     public void remove(String key, long amount) {
+
+        if (amount <= 0) {
+            return;
+        }
 
         values.compute(key, (ignored, current) -> {
 

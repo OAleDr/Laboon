@@ -23,29 +23,12 @@ public class Account {
 
     private AccountPreferences preferences;
 
-    public Account(
-            UUID uniqueId,
-            String name
-    ) {
+    public Account(UUID uniqueId, String name) {
 
-        this(
-                uniqueId,
-                name,
-                AccountType.ORIGINAL,
-                Instant.now(),
-                null,
-                new AccountPreferences()
-        );
+        this(uniqueId, name, AccountType.ORIGINAL, Instant.now(), null, new AccountPreferences());
     }
 
-    public Account(
-            UUID uniqueId,
-            String name,
-            AccountType type,
-            Instant createdAt,
-            Instant lastLogin,
-            AccountPreferences preferences
-    ) {
+    public Account(UUID uniqueId, String name, AccountType type, Instant createdAt, Instant lastLogin, AccountPreferences preferences) {
 
         this.uniqueId = uniqueId;
 
@@ -74,9 +57,7 @@ public class Account {
         return name;
     }
 
-    public void setName(
-            String name
-    ) {
+    public void setName(String name) {
         this.name = name;
     }
 
@@ -84,9 +65,7 @@ public class Account {
         return rank;
     }
 
-    public void setRank(
-            String rank
-    ) {
+    public void setRank(String rank) {
         this.rank = rank;
     }
 
@@ -94,9 +73,7 @@ public class Account {
         return coins;
     }
 
-    public void setCoins(
-            long coins
-    ) {
+    public void setCoins(long coins) {
         this.coins = coins;
     }
 
@@ -104,9 +81,7 @@ public class Account {
         return experience;
     }
 
-    public void setExperience(
-            long experience
-    ) {
+    public void setExperience(long experience) {
         this.experience = experience;
     }
 
@@ -114,9 +89,7 @@ public class Account {
         return type;
     }
 
-    public void setType(
-            AccountType type
-    ) {
+    public void setType(AccountType type) {
         this.type = type;
     }
 
@@ -128,9 +101,7 @@ public class Account {
         return lastLogin;
     }
 
-    public void setLastLogin(
-            Instant lastLogin
-    ) {
+    public void setLastLogin(Instant lastLogin) {
         this.lastLogin = lastLogin;
     }
 
@@ -138,9 +109,7 @@ public class Account {
         return preferences;
     }
 
-    public void setPreferences(
-            AccountPreferences preferences
-    ) {
+    public void setPreferences(AccountPreferences preferences) {
         this.preferences = preferences;
     }
 }

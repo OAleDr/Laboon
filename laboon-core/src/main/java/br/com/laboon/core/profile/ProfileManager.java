@@ -21,91 +21,57 @@ public final class ProfileManager {
             StatisticsRepository statisticsRepository
     ) {
 
-        this.accountManager =
-                accountManager;
+        this.accountManager = accountManager;
 
-        this.statisticsRepository =
-                statisticsRepository;
+        this.statisticsRepository = statisticsRepository;
     }
 
-    public PlayerProfile get(
-            UUID uniqueId
-    ) {
+    public PlayerProfile get(UUID uniqueId) {
 
-        PlayerProfile existing =
-                profiles.get(uniqueId);
+        PlayerProfile existing = profiles.get(uniqueId);
 
         if (existing != null) {
             return existing;
         }
 
-        Account account =
-                accountManager.get(uniqueId);
+        Account account = accountManager.get(uniqueId);
 
         if (account == null) {
             return null;
         }
 
-        PlayerProfile profile =
-                new PlayerProfile(
-                        account,
-                        statisticsRepository
-                );
+        PlayerProfile profile = new PlayerProfile(account, statisticsRepository);
 
-        profiles.put(
-                uniqueId,
-                profile
-        );
+        profiles.put(uniqueId, profile);
 
         return profile;
     }
 
-    public PlayerProfile load(
-            UUID uniqueId
-    ) {
+    public PlayerProfile load(UUID uniqueId) {
 
-        Account account =
-                accountManager.get(
-                        uniqueId
-                );
+        Account account = accountManager.get(uniqueId);
 
         if (account == null) {
             return null;
         }
 
-        PlayerProfile profile =
-                new PlayerProfile(
-                        account,
-                        statisticsRepository
-                );
+        PlayerProfile profile = new PlayerProfile(account, statisticsRepository);
 
-        profiles.put(
-                uniqueId,
-                profile
-        );
+        profiles.put(uniqueId, profile);
 
         return profile;
     }
 
-    public void save(
-            PlayerProfile profile
-    ) {
+    public void save(PlayerProfile profile) {
 
-        accountManager.save(
-                profile.getAccount()
-        );
+        accountManager.save(profile.getAccount());
 
         profile.saveAllStatistics();
     }
 
-    public void unload(
-            UUID uniqueId
-    ) {
+    public void unload(UUID uniqueId) {
 
-        PlayerProfile profile =
-                profiles.remove(
-                        uniqueId
-                );
+        PlayerProfile profile = profiles.remove(uniqueId);
 
         if (profile == null) {
             return;

@@ -7,11 +7,17 @@ import br.com.laboon.core.profile.StatisticsRepository;
 
 import org.bukkit.entity.Player;
 
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+
 public final class BukkitProfileProvider implements ProfileProvider {
 
     private final AccountRepository accountRepository;
 
     private final StatisticsRepository statisticsRepository;
+
+    private final ConcurrentMap<UUID, PlayerProfile> profiles = new ConcurrentHashMap<>();
 
     public BukkitProfileProvider(AccountRepository accountRepository, StatisticsRepository statisticsRepository) {
 
@@ -23,13 +29,35 @@ public final class BukkitProfileProvider implements ProfileProvider {
     @Override
     public PlayerProfile getProfile(Player player) {
 
-        Account account = accountRepository.findById(player.getUniqueId());
+        return get(player.getUniqueId());
+    }
+
+    public PlayerProfile get(UUID uniqueId) {
+
+        PlayerProfile existing = profiles.get(uniqueId);
+
+        if (existing != null) {
+            return existing;
+        }
+
+        Account account = accountRepository.findById(uniqueId);
 
         if (account == null) {
-
             return null;
         }
 
-        return new PlayerProfile(account, statisticsRepository);
+        PlayerProfile profile = new PlayerProfile(account, statisticsRepository);
+
+        profiles.put(uniqueId, profile);
+
+        return profile;
+    }
+
+    @Override
+    public void save(PlayerProfile profile) {
+
+        accountRepository.save(profile.getAccount());
+
+        profile.saveAllStatistics();
     }
 }

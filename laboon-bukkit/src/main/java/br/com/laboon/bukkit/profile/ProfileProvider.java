@@ -6,7 +6,7 @@ import org.bukkit.entity.Player;
 
 public interface ProfileProvider {
 
-    PlayerProfile getProfile(
-            Player player
-    );
+    PlayerProfile getProfile(Player player);
+
+    void save(PlayerProfile profile);
 }
