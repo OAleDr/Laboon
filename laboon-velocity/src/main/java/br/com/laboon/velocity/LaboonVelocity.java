@@ -1,5 +1,6 @@
 package br.com.laboon.velocity;
 
+import br.com.laboon.core.language.LanguageService;
 import br.com.laboon.core.messaging.MessageBus;
 import br.com.laboon.core.messaging.RedisPublisher;
 import br.com.laboon.core.messaging.RedisSubscriber;
@@ -9,6 +10,7 @@ import br.com.laboon.core.server.ServerRegistry;
 import br.com.laboon.velocity.command.LaboonCommand;
 import br.com.laboon.velocity.command.ServerCommand;
 import br.com.laboon.velocity.config.VelocityConfig;
+import br.com.laboon.velocity.language.VelocityLanguage;
 import br.com.laboon.velocity.listener.ConnectionListener;
 import br.com.laboon.velocity.listener.ServerDisconnectListener;
 import br.com.laboon.velocity.listener.ServerListener;
@@ -29,21 +31,18 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.scheduler.ScheduledTask;
 import org.slf4j.Logger;
 
+import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
 
-@Plugin(
-        id = "laboon",
-        name = "Laboon",
-        version = "1.0.0-SNAPSHOT",
-        description = "Laboon Network",
-        authors = {"Laboon"}
-)
+@Plugin(id = "laboon", name = "Laboon", version = "1.0.0-SNAPSHOT", description = "Laboon Network", authors = {"Laboon"})
 public final class LaboonVelocity {
 
     private final ProxyServer proxyServer;
     private final Logger logger;
 
     private RedisManager redisManager;
+
+    private LanguageService languageService;
 
     private MessageBus messageBus;
 
@@ -76,36 +75,26 @@ public final class LaboonVelocity {
     private ScheduledTask serverSyncTask;
 
     @Inject
-    public LaboonVelocity(
-            ProxyServer proxyServer,
-            Logger logger
-    ) {
+    public LaboonVelocity(ProxyServer proxyServer, Logger logger) {
 
         this.proxyServer = proxyServer;
         this.logger = logger;
     }
 
     @Subscribe
-    public void onProxyInitialize(
-            ProxyInitializeEvent event
-    ) {
+    public void onProxyInitialize(ProxyInitializeEvent event) {
 
-        logger.info(
-                "================================="
-        );
+        logger.info("=================================");
 
-        logger.info(
-                "          LABOON NETWORK"
-        );
+        logger.info("          LABOON NETWORK");
 
-        logger.info(
-                "================================="
-        );
+        logger.info("=================================");
 
-        VelocityConfig config =
-                VelocityConfig.defaultConfig();
+        VelocityConfig config = VelocityConfig.defaultConfig();
 
         connectRedis(config);
+
+        setupLanguage();
 
         setupManagers();
 
@@ -122,42 +111,39 @@ public final class LaboonVelocity {
         registerListeners();
 
 
-        logger.info(
-                "Laboon inicializado com sucesso!"
-        );
+        logger.info("Laboon inicializado com sucesso!");
     }
 
-    private void connectRedis(
-            VelocityConfig config
-    ) {
+    private void connectRedis(VelocityConfig config) {
 
-        logger.info(
-                "Conectando ao Redis..."
-        );
+        logger.info("Conectando ao Redis...");
 
-        redisManager =
-                new RedisManager(
-                        config.getRedisHost(),
-                        config.getRedisPort()
-                );
+        redisManager = new RedisManager(config.getRedisHost(), config.getRedisPort());
 
         if (!redisManager.isConnected()) {
 
-            throw new IllegalStateException(
-                    "Não foi possível conectar ao Redis."
-            );
+            throw new IllegalStateException("Não foi possível conectar ao Redis.");
         }
 
-        logger.info(
-                "Redis conectado com sucesso!"
-        );
+        logger.info("Redis conectado com sucesso!");
+    }
+
+    private void setupLanguage() {
+
+        Path languageDirectory = Path.of("plugins", "Laboon", "languages");
+
+        VelocityLanguage language = new VelocityLanguage(languageDirectory);
+
+        languageService = language.getService();
+
+        logger.info("Sistema de linguagem inicializado.");
     }
 
     private void setupManagers() {
 
         playerManager = new PlayerManager(proxyServer);
         serverRegistry = new ServerRegistry(redisManager);
-        serverManager = new ProxyServerManager( serverRegistry);
+        serverManager = new ProxyServerManager(serverRegistry);
         registrationService = new ServerRegistrationService(proxyServer, serverRegistry);
         serverCache = new ServerCache();
         serverAvailabilityService = new ServerAvailabilityService();
@@ -166,167 +152,77 @@ public final class LaboonVelocity {
         connectionService = new ServerConnectionService(proxyServer, serverAvailabilityService);
         playerServerService = new PlayerServerService(serverRegistry);
 
-        fallbackService =
-                new ServerFallbackService(
-                        serverSelector,
-                        connectionService
-                );
+        fallbackService = new ServerFallbackService(serverSelector, connectionService);
     }
 
     private void setupMessaging() {
 
-        RedisPublisher publisher =
-                new RedisPublisher(
-                        redisManager
-                );
+        RedisPublisher publisher = new RedisPublisher(redisManager);
 
-        RedisSubscriber subscriber =
-                new RedisSubscriber(
-                        redisManager
-                );
+        RedisSubscriber subscriber = new RedisSubscriber(redisManager);
 
-        messageBus =
-                new MessageBus(
-                        publisher,
-                        subscriber
-                );
+        messageBus = new MessageBus(publisher, subscriber);
 
-        messageService =
-                new VelocityMessageService(
-                        messageBus,
-                        registrationService
-                );
+        messageService = new VelocityMessageService(messageBus, registrationService);
 
         messageService.listen();
 
-        logger.info(
-                "Messaging inicializado."
-        );
+        logger.info("Messaging inicializado.");
     }
 
-    private void setupHeartbeat(
-            VelocityConfig config
-    ) {
+    private void setupHeartbeat(VelocityConfig config) {
 
-        proxyHeartbeat =
-                new ProxyHeartbeat(
-                        redisManager,
-                        config.getProxyName()
-                );
+        proxyHeartbeat = new ProxyHeartbeat(redisManager, config.getProxyName());
 
         proxyHeartbeat.start();
 
-        logger.info(
-                "Proxy Heartbeat iniciado."
-        );
+        logger.info("Proxy Heartbeat iniciado.");
     }
+
     private void registerServers() {
 
-        logger.info(
-                "Registrando servidores do Redis..."
-        );
+        logger.info("Registrando servidores do Redis...");
 
         registrationService.registerAll();
 
-        logger.info(
-                "Servidores registrados."
-        );
+        logger.info("Servidores registrados.");
     }
 
     private void startServerSync() {
 
-        serverSyncTask = proxyServer
-                        .getScheduler()
-                        .buildTask(
-                                this,
-                                () -> serverRegistrySync.sync()
-                        )
-                        .repeat(
-                                5,
-                                TimeUnit.SECONDS
-                        )
-                        .schedule();
+        serverSyncTask = proxyServer.getScheduler().buildTask(this, () -> serverRegistrySync.sync()).repeat(5, TimeUnit.SECONDS).schedule();
 
-        logger.info(
-                "Sincronização de servidores iniciada."
-        );
+        logger.info("Sincronização de servidores iniciada.");
     }
 
     private void registerCommands() {
 
-        proxyServer
-                .getCommandManager()
-                .register(
-                        proxyServer
-                                .getCommandManager()
-                                .metaBuilder("laboon")
-                                .build(),
+        proxyServer.getCommandManager().register(proxyServer.getCommandManager().metaBuilder("laboon").build(),
 
-                        new LaboonCommand()
-                );
+                new LaboonCommand());
 
-        proxyServer
-                .getCommandManager()
-                .register(
-                        proxyServer
-                                .getCommandManager()
-                                .metaBuilder("server")
-                                .aliases("servers")
-                                .build(),
+        proxyServer.getCommandManager().register(proxyServer.getCommandManager().metaBuilder("server").aliases("servers").build(),
 
-                        new ServerCommand(
-                                serverSelector,
-                                connectionService,
-                                serverAvailabilityService
-                        )
-                );
+                new ServerCommand(serverSelector, connectionService, serverAvailabilityService, languageService));
 
-        logger.info(
-                "Comandos registrados."
-        );
+        logger.info("Comandos registrados.");
     }
 
     private void registerListeners() {
 
-        proxyServer
-                .getEventManager()
-                .register(
-                        this,
-                        new ConnectionListener(fallbackService
-                        )
-                );
+        proxyServer.getEventManager().register(this, new ConnectionListener(proxyServer, fallbackService));
 
-        proxyServer
-                .getEventManager()
-                .register(
-                        this,
-                        new ServerListener()
-                );
+        proxyServer.getEventManager().register(this, new ServerListener());
 
-        proxyServer
-                .getEventManager()
-                .register(
-                        this,
-                        new ServerDisconnectListener(
-                                serverRegistry,
-                                serverCache,
-                                fallbackService
-                        )
-                );
+        proxyServer.getEventManager().register(this, new ServerDisconnectListener(serverRegistry, serverCache, fallbackService));
 
-        logger.info(
-                "Listeners registrados."
-        );
+        logger.info("Listeners registrados.");
     }
 
     @Subscribe
-    public void onProxyShutdown(
-            ProxyShutdownEvent event
-    ) {
+    public void onProxyShutdown(ProxyShutdownEvent event) {
 
-        logger.info(
-                "Desligando Laboon..."
-        );
+        logger.info("Desligando Laboon...");
 
         if (serverSyncTask != null) {
             serverSyncTask.cancel();
@@ -340,9 +236,7 @@ public final class LaboonVelocity {
             redisManager.close();
         }
 
-        logger.info(
-                "Laboon encerrado."
-        );
+        logger.info("Laboon encerrado.");
     }
 
     public ProxyServer getProxyServer() {
@@ -380,4 +274,9 @@ public final class LaboonVelocity {
     public ServerCache getServerCache() {
         return serverCache;
     }
+
+    public LanguageService getLanguageService() {
+        return languageService;
+    }
+
 }

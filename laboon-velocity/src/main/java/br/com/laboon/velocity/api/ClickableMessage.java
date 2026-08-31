@@ -23,6 +23,15 @@ public final class ClickableMessage {
         );
     }
 
+    public static ClickableMessage text(
+            Component component
+    ) {
+
+        return new ClickableMessage(
+                component
+        );
+    }
+
     public ClickableMessage clickCommand(
             String command
     ) {
@@ -53,6 +62,19 @@ public final class ClickableMessage {
                 component.hoverEvent(
                         HoverEvent.showText(
                                 Component.text(text)
+                        )
+                )
+        );
+    }
+
+    public ClickableMessage hover(
+            Component hover
+    ) {
+
+        return new ClickableMessage(
+                component.hoverEvent(
+                        HoverEvent.showText(
+                                hover
                         )
                 )
         );

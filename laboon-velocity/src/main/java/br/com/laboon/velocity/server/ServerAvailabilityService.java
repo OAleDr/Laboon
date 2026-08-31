@@ -36,29 +36,31 @@ public final class ServerAvailabilityService {
             ServerInfo server
     ) {
 
-        if (server.getPlayers() >= server.getMaxPlayers()) {
-            return "§c[CHEIO]";
+        if (server.getPlayers()
+                >= server.getMaxPlayers()) {
+
+            return "server.status.full";
         }
 
         return switch (server.getState()) {
 
             case STARTING ->
-                    "§e[INICIANDO]";
+                    "server.status.starting";
 
             case WAITING ->
-                    "§a[DISPONÍVEL]";
+                    "server.status.waiting";
 
             case INGAME ->
-                    "§b[EM JOGO]";
+                    "server.status.ingame";
 
             case ENDING ->
-                    "§6[FINALIZANDO]";
+                    "server.status.ending";
 
             case ONLINE ->
-                    "§a[ONLINE]";
+                    "server.status.online";
 
             case OFFLINE ->
-                    "§c[OFFLINE]";
+                    "server.status.offline";
         };
     }
 

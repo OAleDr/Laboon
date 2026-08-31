@@ -6,8 +6,6 @@ import br.com.laboon.core.server.ServerType;
 
 import com.velocitypowered.api.proxy.Player;
 
-import net.kyori.adventure.text.Component;
-
 import java.util.List;
 
 public final class ServerFallbackService {
@@ -24,6 +22,20 @@ public final class ServerFallbackService {
 
         this.connectionService =
                 connectionService;
+    }
+
+    public ServerInfo findLobby() {
+
+        return serverSelector.findLobby();
+    }
+
+    public ServerInfo findGameLobby(
+            ServerType type
+    ) {
+
+        return serverSelector.findGameLobby(
+                type
+        );
     }
 
     public void connect(
@@ -56,8 +68,7 @@ public final class ServerFallbackService {
                         .stream()
                         .filter(server ->
                                 excludedServer == null
-                                        || !server
-                                        .getName()
+                                        || !server.getName()
                                         .equalsIgnoreCase(
                                                 excludedServer
                                         )
@@ -65,13 +76,6 @@ public final class ServerFallbackService {
                         .toList();
 
         if (servers.isEmpty()) {
-
-            player.sendMessage(
-                    Component.text(
-                            "§cNenhum servidor disponível no momento."
-                    )
-            );
-
             return;
         }
 
@@ -89,13 +93,6 @@ public final class ServerFallbackService {
     ) {
 
         if (index >= servers.size()) {
-
-            player.sendMessage(
-                    Component.text(
-                            "§cNão foi possível conectar ao servidor."
-                    )
-            );
-
             return;
         }
 
