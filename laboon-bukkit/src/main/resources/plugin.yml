@@ -4,3 +4,10 @@ main: br.com.laboon.bukkit.LaboonBukkit
 description: Laboon Network Bukkit
 author: Laboon
 api-version: '1.21'
+commands:
+  guitest:
+    description: Teste da API de GUI
+    usage: /guitest
+  profile:
+      description: Abre seu perfil
+      usage: /profile

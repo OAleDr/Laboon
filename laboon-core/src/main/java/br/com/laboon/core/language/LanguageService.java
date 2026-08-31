@@ -3,6 +3,8 @@ package br.com.laboon.core.language;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 public final class LanguageService {
@@ -12,123 +14,88 @@ public final class LanguageService {
 
     private final LanguageLocale defaultLocale;
 
-    public LanguageService(
-            LanguageManager manager,
-            LanguageLocale defaultLocale
-    ) {
+    public LanguageService(LanguageManager manager, LanguageLocale defaultLocale) {
 
         this.manager = manager;
 
         this.defaultLocale = defaultLocale;
 
-        this.miniMessage =
-                MiniMessage.miniMessage();
+        this.miniMessage = MiniMessage.miniMessage();
     }
 
-    public Component message(
-            LanguageLocale locale,
-            String module,
-            String key
-    ) {
+    public Component message(LanguageLocale locale, String module, String key) {
 
-        String text =
-                resolve(
-                        locale,
-                        module,
-                        key
-                );
+        String text = resolve(locale, module, key);
 
-        return miniMessage.deserialize(
-                text
-        );
+        return miniMessage.deserialize(text);
     }
 
-    public Component message(
-            LanguageLocale locale,
-            String module,
-            String key,
-            Map<String, ?> placeholders
-    ) {
+    public Component message(LanguageLocale locale, String module, String key, Map<String, ?> placeholders) {
 
-        String text =
-                resolve(
-                        locale,
-                        module,
-                        key
-                );
+        String text = resolve(locale, module, key);
 
-        for (
-                Map.Entry<String, ?> entry :
-                placeholders.entrySet()
-        ) {
+        for (Map.Entry<String, ?> entry : placeholders.entrySet()) {
 
-            String placeholder =
-                    "{"
-                            + entry.getKey()
-                            + "}";
+            String placeholder = "{" + entry.getKey() + "}";
 
-            String value =
-                    String.valueOf(
-                            entry.getValue()
-                    );
+            String value = String.valueOf(entry.getValue());
 
-            text =
-                    text.replace(
-                            placeholder,
-                            value
-                    );
+            text = text.replace(placeholder, value);
         }
 
-        return miniMessage.deserialize(
-                text
-        );
+        return miniMessage.deserialize(text);
     }
 
-    public String text(
-            LanguageLocale locale,
-            String module,
-            String key
-    ) {
+    public List<Component> messages(LanguageLocale locale, String module, String key) {
 
-        return resolve(
-                locale,
-                module,
-                key
-        );
+        return messages(locale, module, key, Map.of());
     }
 
-    private String resolve(
-            LanguageLocale locale,
-            String module,
-            String key
-    ) {
+    public List<Component> messages(LanguageLocale locale, String module, String key, Map<String, ?> placeholders) {
 
-        String message =
-                manager.get(
-                        locale,
-                        module,
-                        key
-                );
+        String text = resolve(locale, module, key);
+
+        List<Component> components = new ArrayList<>();
+
+        for (String line : text.split("\\n", -1)) {
+
+            String processed = line;
+
+            for (Map.Entry<String, ?> entry : placeholders.entrySet()) {
+
+                String placeholder = "{" + entry.getKey() + "}";
+
+                String value = String.valueOf(entry.getValue());
+
+                processed = processed.replace(placeholder, value);
+            }
+
+            components.add(miniMessage.deserialize(processed));
+        }
+
+        return List.copyOf(components);
+    }
+
+    public String text(LanguageLocale locale, String module, String key) {
+
+        return resolve(locale, module, key);
+    }
+
+    private String resolve(LanguageLocale locale, String module, String key) {
+
+        String message = manager.get(locale, module, key);
 
         if (message != null) {
             return message;
         }
 
-        message =
-                manager.get(
-                        defaultLocale,
-                        module,
-                        key
-                );
+        message = manager.get(defaultLocale, module, key);
 
         if (message != null) {
             return message;
         }
 
-        return "<red>Missing message: "
-                + module
-                + "."
-                + key;
+        return "<red>Missing message: " + module + "." + key;
     }
 
     public LanguageLocale getDefaultLocale() {
