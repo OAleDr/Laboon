@@ -27,7 +27,8 @@ public final class VelocityLanguage {
                         List.of(module),
                         List.of(
                                 LanguageLocale.ptBR(),
-                                LanguageLocale.enUS()
+                                LanguageLocale.enUS(),
+                                LanguageLocale.esES()
                         )
                 );
     }

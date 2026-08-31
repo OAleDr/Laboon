@@ -7,7 +7,6 @@ public final class LanguageLocale {
     private final String code;
 
     private LanguageLocale(String code) {
-
         this.code = code;
     }
 
@@ -19,6 +18,18 @@ public final class LanguageLocale {
         }
 
         return new LanguageLocale(code.trim().replace('-', '_'));
+    }
+
+    public static LanguageLocale fromCode(String code) {
+
+        if (code == null || code.isBlank()) {
+
+            throw new IllegalArgumentException("O código do idioma não pode ser vazio.");
+        }
+
+        String normalized = code.trim().replace('-', '_');
+
+        return of(normalized);
     }
 
     public static LanguageLocale ptBR() {

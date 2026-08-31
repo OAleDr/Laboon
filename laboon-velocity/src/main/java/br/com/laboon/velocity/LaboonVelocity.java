@@ -1,16 +1,25 @@
 package br.com.laboon.velocity;
 
+import br.com.laboon.core.account.AccountManager;
+import br.com.laboon.core.account.AccountService;
+import br.com.laboon.core.account.AccountSessionManager;
 import br.com.laboon.core.language.LanguageService;
 import br.com.laboon.core.messaging.MessageBus;
 import br.com.laboon.core.messaging.RedisPublisher;
 import br.com.laboon.core.messaging.RedisSubscriber;
+import br.com.laboon.core.profile.PlayerProfile;
+import br.com.laboon.core.profile.ProfileManager;
+import br.com.laboon.core.profile.StatisticsRepository;
 import br.com.laboon.core.redis.RedisManager;
 import br.com.laboon.core.server.ServerRegistry;
 
+import br.com.laboon.velocity.account.VelocityAccountService;
 import br.com.laboon.velocity.command.LaboonCommand;
+import br.com.laboon.velocity.command.LanguageCommand;
 import br.com.laboon.velocity.command.ServerCommand;
 import br.com.laboon.velocity.config.VelocityConfig;
 import br.com.laboon.velocity.language.VelocityLanguage;
+import br.com.laboon.velocity.listener.AccountConnectionListener;
 import br.com.laboon.velocity.listener.ConnectionListener;
 import br.com.laboon.velocity.listener.ServerDisconnectListener;
 import br.com.laboon.velocity.listener.ServerListener;
@@ -26,6 +35,7 @@ import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
 
 import com.velocitypowered.api.plugin.Plugin;
+import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 
 import com.velocitypowered.api.scheduler.ScheduledTask;
@@ -71,6 +81,18 @@ public final class LaboonVelocity {
     private VelocityMessageService messageService;
 
     private ServerCache serverCache;
+
+    private AccountService accountService;
+
+    private AccountManager accountManager;
+
+    private AccountSessionManager accountSessionManager;
+
+    private VelocityAccountService velocityAccountService;
+
+    private StatisticsRepository statisticsRepository;
+
+    private ProfileManager profileManager;
 
     private ScheduledTask serverSyncTask;
 
@@ -151,8 +173,13 @@ public final class LaboonVelocity {
         serverSelector = new ServerSelector(serverManager, serverAvailabilityService);
         connectionService = new ServerConnectionService(proxyServer, serverAvailabilityService);
         playerServerService = new PlayerServerService(serverRegistry);
-
         fallbackService = new ServerFallbackService(serverSelector, connectionService);
+        accountService = new AccountService(redisManager);
+        accountManager = new AccountManager(accountService);
+        accountSessionManager = new AccountSessionManager();
+        statisticsRepository = new StatisticsRepository(redisManager);
+        profileManager = new ProfileManager(accountManager, statisticsRepository);
+        velocityAccountService = new VelocityAccountService(accountManager, accountSessionManager);
     }
 
     private void setupMessaging() {
@@ -203,7 +230,11 @@ public final class LaboonVelocity {
 
         proxyServer.getCommandManager().register(proxyServer.getCommandManager().metaBuilder("server").aliases("servers").build(),
 
-                new ServerCommand(serverSelector, connectionService, serverAvailabilityService, languageService));
+                new ServerCommand(serverSelector, connectionService, serverAvailabilityService, languageService, velocityAccountService));
+
+        proxyServer.getCommandManager().register(proxyServer.getCommandManager().metaBuilder("language").aliases("lang", "idioma").build(),
+
+                new LanguageCommand(accountManager, languageService));
 
         logger.info("Comandos registrados.");
     }
@@ -215,6 +246,8 @@ public final class LaboonVelocity {
         proxyServer.getEventManager().register(this, new ServerListener());
 
         proxyServer.getEventManager().register(this, new ServerDisconnectListener(serverRegistry, serverCache, fallbackService));
+
+        proxyServer.getEventManager().register(this, new AccountConnectionListener(velocityAccountService, profileManager));
 
         logger.info("Listeners registrados.");
     }
@@ -277,6 +310,10 @@ public final class LaboonVelocity {
 
     public LanguageService getLanguageService() {
         return languageService;
+    }
+
+    public PlayerProfile getProfile(Player player) {
+        return profileManager.get(player.getUniqueId());
     }
 
 }

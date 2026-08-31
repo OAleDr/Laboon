@@ -1,18 +1,18 @@
 package br.com.laboon.velocity.command;
 
+import br.com.laboon.core.account.Account;
 import br.com.laboon.core.language.LanguageLocale;
 import br.com.laboon.core.language.LanguageService;
 import br.com.laboon.core.server.ServerInfo;
 import br.com.laboon.core.server.ServerRole;
 import br.com.laboon.core.server.ServerType;
+import br.com.laboon.velocity.account.VelocityAccountService;
 import br.com.laboon.velocity.api.ClickableMessage;
 import br.com.laboon.velocity.server.ServerAvailabilityService;
 import br.com.laboon.velocity.server.ServerConnectionService;
 import br.com.laboon.velocity.server.ServerSelector;
-
 import com.velocitypowered.api.command.SimpleCommand;
 import com.velocitypowered.api.proxy.Player;
-
 import net.kyori.adventure.text.Component;
 
 import java.util.List;
@@ -24,14 +24,19 @@ public final class ServerCommand implements SimpleCommand {
     private final ServerConnectionService connectionService;
     private final ServerAvailabilityService availabilityService;
     private final LanguageService languageService;
+    private final VelocityAccountService accountService;
 
-    public ServerCommand(ServerSelector serverSelector, ServerConnectionService connectionService, ServerAvailabilityService availabilityService, LanguageService languageService) {
+    public ServerCommand(ServerSelector serverSelector, ServerConnectionService connectionService, ServerAvailabilityService availabilityService, LanguageService languageService, VelocityAccountService accountService) {
+
         this.serverSelector = serverSelector;
 
         this.connectionService = connectionService;
 
         this.availabilityService = availabilityService;
+
         this.languageService = languageService;
+
+        this.accountService = accountService;
     }
 
     @Override
@@ -59,19 +64,19 @@ public final class ServerCommand implements SimpleCommand {
 
         if (server == null) {
 
-            player.sendMessage(languageService.message(LanguageLocale.ptBR(), "velocity", "server.not-found"));
+            player.sendMessage(message(player, "server.not-found"));
 
             return;
         }
 
         if (!availabilityService.isAvailable(server)) {
 
-            player.sendMessage(languageService.message(LanguageLocale.ptBR(), "velocity", "server.unavailable"));
+            player.sendMessage(message(player, "server.unavailable"));
 
             return;
         }
 
-        connectionService.connect(player, server, () -> player.sendMessage(languageService.message(LanguageLocale.ptBR(), "velocity", "server.connection-failed")));
+        connectionService.connect(player, server, () -> player.sendMessage(message(player, "server.connection-failed")));
     }
 
     @Override
@@ -113,13 +118,15 @@ public final class ServerCommand implements SimpleCommand {
 
     private void sendServerEntry(Player player, ServerInfo server) {
 
+        LanguageLocale locale = getPlayerLocale(player);
+
         boolean currentServer = player.getCurrentServer().map(connection -> connection.getServer().getServerInfo().getName().equalsIgnoreCase(server.getName())).orElse(false);
 
         boolean available = !currentServer && availabilityService.isAvailable(server);
 
         String statusKey = availabilityService.getStatus(server);
 
-        Component status = languageService.message(LanguageLocale.ptBR(), "velocity", statusKey);
+        Component status = languageService.message(locale, "velocity", statusKey);
 
         String entryKey;
 
@@ -136,7 +143,7 @@ public final class ServerCommand implements SimpleCommand {
             entryKey = "server.entry.unavailable";
         }
 
-        Component entry = languageService.message(LanguageLocale.ptBR(), "velocity", entryKey);
+        Component entry = languageService.message(locale, "velocity", entryKey);
 
         Component text = Component.text().append(Component.text("  ")).append(Component.text(server.getName())).append(Component.text(" ")).append(Component.text(server.getPlayers() + "/" + server.getMaxPlayers())).append(Component.text(" ")).append(status).append(Component.text(" ")).append(entry).build();
 
@@ -144,15 +151,15 @@ public final class ServerCommand implements SimpleCommand {
 
         if (currentServer) {
 
-            hover = languageService.message(LanguageLocale.ptBR(), "velocity", "server.hover.current");
+            hover = languageService.message(locale, "velocity", "server.hover.current");
 
         } else if (available) {
 
-            hover = languageService.message(LanguageLocale.ptBR(), "velocity", "server.hover.connect", Map.of("server", server.getName()));
+            hover = languageService.message(locale, "velocity", "server.hover.connect", Map.of("server", server.getName()));
 
         } else {
 
-            hover = languageService.message(LanguageLocale.ptBR(), "velocity", "server.hover.unavailable");
+            hover = languageService.message(locale, "velocity", "server.hover.unavailable");
         }
 
         ClickableMessage message = ClickableMessage.text(text).hover(hover);
@@ -163,5 +170,22 @@ public final class ServerCommand implements SimpleCommand {
         }
 
         player.sendMessage(message.build());
+    }
+
+    private Component message(Player player, String key) {
+
+        return languageService.message(getPlayerLocale(player), "velocity", key);
+    }
+
+    private LanguageLocale getPlayerLocale(Player player) {
+
+        Account account = accountService.getAccount(player);
+
+        if (account == null) {
+
+            return LanguageLocale.ptBR();
+        }
+
+        return account.getPreferences().getLanguage();
     }
 }
