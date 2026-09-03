@@ -11,8 +11,6 @@ public class Account {
 
     private String rank;
 
-    private long coins;
-
     private long experience;
 
     private AccountType type;
@@ -35,8 +33,6 @@ public class Account {
         this.name = name;
 
         this.rank = "DEFAULT";
-
-        this.coins = 0;
 
         this.experience = 0;
 
@@ -67,14 +63,6 @@ public class Account {
 
     public void setRank(String rank) {
         this.rank = rank;
-    }
-
-    public long getCoins() {
-        return coins;
-    }
-
-    public void setCoins(long coins) {
-        this.coins = coins;
     }
 
     public long getExperience() {

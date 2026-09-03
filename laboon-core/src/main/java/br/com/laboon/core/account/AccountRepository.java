@@ -30,8 +30,6 @@ public final class AccountRepository {
 
         data.put("rank", account.getRank());
 
-        data.put("coins", String.valueOf(account.getCoins()));
-
         data.put("experience", String.valueOf(account.getExperience()));
 
         data.put("type", account.getType().name());
@@ -64,8 +62,6 @@ public final class AccountRepository {
         Account account = new Account(uniqueId, data.getOrDefault("name", ""), AccountType.valueOf(data.getOrDefault("type", "ORIGINAL")), Instant.parse(data.getOrDefault("createdAt", Instant.now().toString())), parseInstant(data.get("lastLogin")), loadPreferences(data));
 
         account.setRank(data.getOrDefault("rank", "DEFAULT"));
-
-        account.setCoins(Long.parseLong(data.getOrDefault("coins", "0")));
 
         account.setExperience(Long.parseLong(data.getOrDefault("experience", "0")));
 
@@ -101,7 +97,6 @@ public final class AccountRepository {
     private Instant parseInstant(String value) {
 
         if (value == null || value.isBlank()) {
-
             return null;
         }
 

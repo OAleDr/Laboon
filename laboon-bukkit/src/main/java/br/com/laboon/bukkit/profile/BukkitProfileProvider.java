@@ -2,6 +2,7 @@ package br.com.laboon.bukkit.profile;
 
 import br.com.laboon.core.account.Account;
 import br.com.laboon.core.account.AccountRepository;
+import br.com.laboon.core.profile.GameCoinsRepository;
 import br.com.laboon.core.profile.PlayerProfile;
 import br.com.laboon.core.profile.StatisticsRepository;
 
@@ -17,13 +18,17 @@ public final class BukkitProfileProvider implements ProfileProvider {
 
     private final StatisticsRepository statisticsRepository;
 
+    private final GameCoinsRepository gameCoinsRepository;
+
     private final ConcurrentMap<UUID, PlayerProfile> profiles = new ConcurrentHashMap<>();
 
-    public BukkitProfileProvider(AccountRepository accountRepository, StatisticsRepository statisticsRepository) {
+    public BukkitProfileProvider(AccountRepository accountRepository, StatisticsRepository statisticsRepository, GameCoinsRepository gameCoinsRepository) {
 
         this.accountRepository = accountRepository;
 
         this.statisticsRepository = statisticsRepository;
+
+        this.gameCoinsRepository = gameCoinsRepository;
     }
 
     @Override
@@ -46,7 +51,7 @@ public final class BukkitProfileProvider implements ProfileProvider {
             return null;
         }
 
-        PlayerProfile profile = new PlayerProfile(account, statisticsRepository);
+        PlayerProfile profile = new PlayerProfile(account, statisticsRepository, gameCoinsRepository);
 
         profiles.put(uniqueId, profile);
 
@@ -58,6 +63,21 @@ public final class BukkitProfileProvider implements ProfileProvider {
 
         accountRepository.save(profile.getAccount());
 
-        profile.saveAllStatistics();
+        profile.saveAll();
     }
+
+    @Override
+    public void unload(UUID uniqueId) {
+        profiles.remove(uniqueId);
+    }
+
+    @Override
+    public void saveAll() {
+
+        for (PlayerProfile profile : profiles.values()) {
+
+            save(profile);
+        }
+    }
+
 }

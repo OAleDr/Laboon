@@ -49,13 +49,6 @@ public final class ProfileGui {
 
         createProfileItem(gui, player, profile, locale);
 
-        /*
-         * =========================
-         * COINS
-         * =========================
-         */
-
-        createCoinsItem(gui, profile, locale);
 
         /*
          * =========================
@@ -124,22 +117,6 @@ public final class ProfileGui {
         gui.setItem(4, item);
     }
 
-    /*
-     * =========================
-     * COINS
-     * =========================
-     */
-
-    private void createCoinsItem(Gui gui, PlayerProfile profile, LanguageLocale locale) {
-
-        GuiItem item = GuiItem.item(Material.GOLD_INGOT).name(languageService.message(locale, "paper", "profile.coins.name")).lore(languageService.text(locale, "paper", "profile.coins.value").replace("{coins}", String.valueOf(profile.getCoins())));
-
-        /*
-         * Slot 10
-         */
-
-        gui.setItem(10, item);
-    }
 
     /*
      * =========================

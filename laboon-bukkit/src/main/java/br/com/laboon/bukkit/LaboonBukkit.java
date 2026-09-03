@@ -1,16 +1,21 @@
 package br.com.laboon.bukkit;
 
-import br.com.laboon.bukkit.command.GuiTestCommand;
-import br.com.laboon.bukkit.command.ProfileCommand;
+import br.com.laboon.bukkit.command.BukkitCommandFramework;
+import br.com.laboon.bukkit.command.BukkitCommandProvider;
 import br.com.laboon.bukkit.config.RedisConfig;
 import br.com.laboon.bukkit.config.RedisConfigLoader;
 import br.com.laboon.bukkit.config.ServerConfig;
 import br.com.laboon.bukkit.config.ServerConfigLoader;
 import br.com.laboon.bukkit.gui.GuiManager;
 import br.com.laboon.bukkit.profile.BukkitProfileProvider;
+import br.com.laboon.bukkit.profile.ProfileListener;
 import br.com.laboon.bukkit.profile.ProfileProvider;
 import br.com.laboon.bukkit.server.ServerHeartbeat;
 import br.com.laboon.core.account.AccountRepository;
+import br.com.laboon.core.command.CommandClass;
+import br.com.laboon.core.command.CommandLoader;
+import br.com.laboon.core.command.CommandProvider;
+import br.com.laboon.core.command.CommandScanner;
 import br.com.laboon.core.language.LanguageBootstrap;
 import br.com.laboon.core.language.LanguageLocale;
 import br.com.laboon.core.language.LanguageModule;
@@ -18,6 +23,7 @@ import br.com.laboon.core.language.LanguageService;
 import br.com.laboon.core.messaging.MessageBus;
 import br.com.laboon.core.messaging.RedisPublisher;
 import br.com.laboon.core.messaging.RedisSubscriber;
+import br.com.laboon.core.profile.GameCoinsRepository;
 import br.com.laboon.core.profile.StatisticsRepository;
 import br.com.laboon.core.redis.RedisManager;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -42,9 +48,13 @@ public final class LaboonBukkit extends JavaPlugin {
 
     private StatisticsRepository statisticsRepository;
 
+    private GameCoinsRepository gameCoinsRepository;
+
     private ProfileProvider profileProvider;
 
     private LanguageService languageService;
+
+    private BukkitCommandFramework commandFramework;
 
 
     @Override
@@ -99,85 +109,37 @@ public final class LaboonBukkit extends JavaPlugin {
 
         statisticsRepository = new StatisticsRepository(redisManager);
 
-        profileProvider = new BukkitProfileProvider(accountRepository, statisticsRepository);
+        gameCoinsRepository = new GameCoinsRepository(redisManager);
+
+        profileProvider = new BukkitProfileProvider(accountRepository, statisticsRepository, gameCoinsRepository);
 
         getLogger().info("Redis conectado com sucesso!");
     }
 
     private void setupLanguageFiles() {
 
-        saveResource(
-                "languages/pt_BR.yml",
-                false
-        );
+        saveResource("languages/pt_BR.yml", false);
 
-        saveResource(
-                "languages/en_US.yml",
-                false
-        );
+        saveResource("languages/en_US.yml", false);
 
-        saveResource(
-                "languages/es_ES.yml",
-                false
-        );
+        saveResource("languages/es_ES.yml", false);
     }
 
     private void setupLanguage() {
 
-        LanguageModule module =
-                new LanguageModule(
-                        "paper",
-                        getDataFolder()
-                                .toPath()
-                                .resolve("languages")
-                );
+        LanguageModule module = new LanguageModule("paper", getDataFolder().toPath().resolve("languages"));
 
-        languageService =
-                LanguageBootstrap.create(
-                        LanguageLocale.ptBR(),
-                        List.of(module),
-                        List.of(
-                                LanguageLocale.ptBR(),
-                                LanguageLocale.enUS(),
-                                LanguageLocale.esES()
-                        )
-                );
+        languageService = LanguageBootstrap.create(LanguageLocale.ptBR(), List.of(module), List.of(LanguageLocale.ptBR(), LanguageLocale.enUS(), LanguageLocale.esES()));
 
-        Path languages =
-                getDataFolder()
-                        .toPath()
-                        .resolve("languages");
+        Path languages = getDataFolder().toPath().resolve("languages");
 
-        getLogger().info(
-                "pt_BR/paper.yml existe: "
-                        + Files.exists(
-                        languages
-                                .resolve("pt_BR")
-                                .resolve("paper.yml")
-                )
-        );
+        getLogger().info("pt_BR/paper.yml existe: " + Files.exists(languages.resolve("pt_BR").resolve("paper.yml")));
 
-        getLogger().info(
-                "en_US/paper.yml existe: "
-                        + Files.exists(
-                        languages
-                                .resolve("en_US")
-                                .resolve("paper.yml")
-                )
-        );
+        getLogger().info("en_US/paper.yml existe: " + Files.exists(languages.resolve("en_US").resolve("paper.yml")));
 
-        getLogger().info(
-                "es_ES/paper.yml existe: "
-                        + Files.exists(
-                        languages
-                                .resolve("es_ES")
-                                .resolve("paper.yml")
-                )
-        );
+        getLogger().info("es_ES/paper.yml existe: " + Files.exists(languages.resolve("es_ES").resolve("paper.yml")));
 
-        getLogger().info(
-                "Sistema de idiomas iniciado."
-        );
+        getLogger().info("Sistema de idiomas iniciado.");
     }
 
 
@@ -187,34 +149,23 @@ public final class LaboonBukkit extends JavaPlugin {
 
         getServer().getPluginManager().registerEvents(guiManager, this);
 
+        getServer().getPluginManager().registerEvents(new ProfileListener(profileProvider), this);
+
         getLogger().info("Listeners registrados.");
     }
 
-
     private void registerCommands() {
 
-        if (getCommand("profile") == null) {
+        BukkitCommandFramework commandFramework = new BukkitCommandFramework(this);
 
-            getLogger().warning("Comando /profile não encontrado no plugin.yml.");
+        CommandProvider commandProvider = new BukkitCommandProvider(guiManager, profileProvider, languageService);
 
-        } else {
+        List<Class<? extends CommandClass>> commands = CommandScanner.scan("br.com.laboon.bukkit.command.commands");
 
-            getCommand("profile").setExecutor(new ProfileCommand(guiManager, profileProvider, languageService));
-        }
+        CommandLoader.load(commandFramework, commands, commandProvider);
 
-
-        if (getCommand("guitest") == null) {
-
-            getLogger().warning("Comando /guitest não encontrado no plugin.yml.");
-
-        } else {
-
-            getCommand("guitest").setExecutor(new GuiTestCommand(guiManager));
-        }
-
-        getLogger().info("Comandos registrados.");
+        getLogger().info("Comandos registrados: " + commands.size());
     }
-
 
     private void setupMessaging() {
 
@@ -241,6 +192,11 @@ public final class LaboonBukkit extends JavaPlugin {
     @Override
     public void onDisable() {
 
+        if (profileProvider != null) {
+
+            profileProvider.saveAll();
+        }
+
         if (heartbeat != null) {
 
             heartbeat.stop();
@@ -255,7 +211,6 @@ public final class LaboonBukkit extends JavaPlugin {
 
         instance = null;
     }
-
 
     public static LaboonBukkit getInstance() {
 

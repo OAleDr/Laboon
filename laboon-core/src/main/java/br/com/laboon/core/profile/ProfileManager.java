@@ -13,17 +13,17 @@ public final class ProfileManager {
 
     private final StatisticsRepository statisticsRepository;
 
-    private final ConcurrentMap<UUID, PlayerProfile> profiles =
-            new ConcurrentHashMap<>();
+    private final GameCoinsRepository gameCoinsRepository;
 
-    public ProfileManager(
-            AccountManager accountManager,
-            StatisticsRepository statisticsRepository
-    ) {
+    private final ConcurrentMap<UUID, PlayerProfile> profiles = new ConcurrentHashMap<>();
+
+    public ProfileManager(AccountManager accountManager, StatisticsRepository statisticsRepository, GameCoinsRepository gameCoinsRepository) {
 
         this.accountManager = accountManager;
 
         this.statisticsRepository = statisticsRepository;
+
+        this.gameCoinsRepository = gameCoinsRepository;
     }
 
     public PlayerProfile get(UUID uniqueId) {
@@ -40,7 +40,7 @@ public final class ProfileManager {
             return null;
         }
 
-        PlayerProfile profile = new PlayerProfile(account, statisticsRepository);
+        PlayerProfile profile = new PlayerProfile(account, statisticsRepository, gameCoinsRepository);
 
         profiles.put(uniqueId, profile);
 
@@ -55,7 +55,7 @@ public final class ProfileManager {
             return null;
         }
 
-        PlayerProfile profile = new PlayerProfile(account, statisticsRepository);
+        PlayerProfile profile = new PlayerProfile(account, statisticsRepository, gameCoinsRepository);
 
         profiles.put(uniqueId, profile);
 

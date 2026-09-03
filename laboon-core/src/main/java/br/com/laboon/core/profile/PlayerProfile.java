@@ -2,6 +2,7 @@ package br.com.laboon.core.profile;
 
 import br.com.laboon.core.account.Account;
 
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -9,146 +10,209 @@ import java.util.concurrent.ConcurrentMap;
 public final class PlayerProfile {
 
     private final Account account;
-
     private final StatisticsRepository statisticsRepository;
+    private final GameCoinsRepository gameCoinsRepository;
 
     private final ConcurrentMap<String, Statistics> statistics = new ConcurrentHashMap<>();
 
-    public PlayerProfile(Account account, StatisticsRepository statisticsRepository) {
+    private final ConcurrentMap<String, Long> gameCoins = new ConcurrentHashMap<>();
+
+    public PlayerProfile(Account account, StatisticsRepository statisticsRepository, GameCoinsRepository gameCoinsRepository) {
+        if (account == null) {
+            throw new IllegalArgumentException("Account não pode ser nulo.");
+        }
+
+        if (statisticsRepository == null) {
+            throw new IllegalArgumentException("StatisticsRepository não pode ser nulo.");
+        }
+
+        if (gameCoinsRepository == null) {
+            throw new IllegalArgumentException("GameCoinsRepository não pode ser nulo.");
+        }
 
         this.account = account;
-
         this.statisticsRepository = statisticsRepository;
+        this.gameCoinsRepository = gameCoinsRepository;
     }
 
     public UUID getUniqueId() {
-
         return account.getUniqueId();
     }
 
     public String getName() {
-
         return account.getName();
     }
 
     public String getRank() {
-
         return account.getRank();
     }
 
     public void setRank(String rank) {
-
         account.setRank(rank);
     }
 
-    public long getCoins() {
-
-        return account.getCoins();
-    }
-
-    public void setCoins(long coins) {
-
-        account.setCoins(coins);
-    }
-
-    public void addCoins(long amount) {
-
-        account.setCoins(account.getCoins() + amount);
-    }
-
     public long getExperience() {
-
         return account.getExperience();
     }
 
     public void setExperience(long experience) {
-
         account.setExperience(experience);
     }
 
     public void addExperience(long amount) {
+        if (amount <= 0) {
+            return;
+        }
 
         account.setExperience(account.getExperience() + amount);
     }
 
     public Account getAccount() {
-
         return account;
     }
 
     /*
      * =========================
-     * ESTATÍSTICAS - GERAL
+     * STATISTICS
      * =========================
      */
 
     public Statistics getStatistics(String game) {
-
         return getStatistics(game, null);
     }
 
-    /*
-     * =========================
-     * ESTATÍSTICAS - MODO
-     * =========================
-     */
-
     public Statistics getStatistics(String game, String mode) {
+        String normalizedGame = normalize(game);
+        String normalizedMode = normalizeNullable(mode);
 
-        String normalizedGame = game.trim().toLowerCase();
-
-        String normalizedMode = mode == null || mode.isBlank() ? null : mode.trim().toLowerCase();
-
-        String cacheKey = normalizedMode == null ? normalizedGame : normalizedGame + ":" + normalizedMode;
+        String cacheKey = createStatisticsCacheKey(normalizedGame, normalizedMode);
 
         return statistics.computeIfAbsent(cacheKey, key -> statisticsRepository.find(getUniqueId(), normalizedGame, normalizedMode));
     }
 
-    /*
-     * =========================
-     * SALVAR - GERAL
-     * =========================
-     */
-
     public void saveStatistics(String game) {
-
         saveStatistics(game, null);
     }
 
-    /*
-     * =========================
-     * SALVAR - MODO
-     * =========================
-     */
-
     public void saveStatistics(String game, String mode) {
+        String normalizedGame = normalize(game);
+        String normalizedMode = normalizeNullable(mode);
 
-        String normalizedGame = game.trim().toLowerCase();
+        String cacheKey = createStatisticsCacheKey(normalizedGame, normalizedMode);
 
-        String normalizedMode = mode == null || mode.isBlank() ? null : mode.trim().toLowerCase();
+        Statistics value = statistics.get(cacheKey);
 
-        String cacheKey = normalizedMode == null ? normalizedGame : normalizedGame + ":" + normalizedMode;
-
-        Statistics stats = statistics.get(cacheKey);
-
-        if (stats == null) {
+        if (value == null) {
             return;
         }
 
-        statisticsRepository.save(getUniqueId(), stats);
+        statisticsRepository.save(getUniqueId(), value);
+    }
+
+    public void saveAllStatistics() {
+        for (Statistics value : statistics.values()) {
+            statisticsRepository.save(getUniqueId(), value);
+        }
     }
 
     /*
      * =========================
-     * SALVAR TUDO
+     * GAME COINS
      * =========================
      */
 
-    public void saveAllStatistics() {
+    public long getCoins(String game) {
+        String normalizedGame = normalize(game);
 
-        for (Statistics stats : statistics.values()) {
+        return gameCoins.computeIfAbsent(normalizedGame, key -> gameCoinsRepository.find(getUniqueId(), normalizedGame));
+    }
 
-            statisticsRepository.save(getUniqueId(), stats);
+    public void setCoins(String game, long coins) {
+        String normalizedGame = normalize(game);
+
+        gameCoins.put(normalizedGame, Math.max(0L, coins));
+    }
+
+    public void addCoins(String game, long amount) {
+        if (amount <= 0) {
+            return;
         }
+
+        String normalizedGame = normalize(game);
+
+        gameCoins.merge(normalizedGame, amount, Long::sum);
+    }
+
+    public void removeCoins(String game, long amount) {
+        if (amount <= 0) {
+            return;
+        }
+
+        String normalizedGame = normalize(game);
+
+        gameCoins.compute(normalizedGame, (key, current) -> {
+            long coins = current == null ? gameCoinsRepository.find(getUniqueId(), normalizedGame) : current;
+
+            return Math.max(0L, coins - amount);
+        });
+    }
+
+    public void saveCoins(String game) {
+        String normalizedGame = normalize(game);
+
+        Long coins = gameCoins.get(normalizedGame);
+
+        if (coins == null) {
+            return;
+        }
+
+        gameCoinsRepository.save(getUniqueId(), normalizedGame, coins);
+    }
+
+    public void saveAllCoins() {
+        for (Map.Entry<String, Long> entry : gameCoins.entrySet()) {
+            gameCoinsRepository.save(getUniqueId(), entry.getKey(), entry.getValue());
+        }
+    }
+
+    /*
+     * =========================
+     * SAVE ALL
+     * =========================
+     */
+
+    public void saveAll() {
+        saveAllStatistics();
+        saveAllCoins();
+    }
+
+    /*
+     * =========================
+     * INTERNAL
+     * =========================
+     */
+
+    private String createStatisticsCacheKey(String game, String mode) {
+        if (mode == null) {
+            return game;
+        }
+
+        return game + ":" + mode;
+    }
+
+    private String normalize(String value) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("O valor não pode ser vazio.");
+        }
+
+        return value.trim().toLowerCase();
+    }
+
+    private String normalizeNullable(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+
+        return value.trim().toLowerCase();
     }
 }

@@ -7,6 +7,7 @@ import br.com.laboon.core.language.LanguageService;
 import br.com.laboon.core.messaging.MessageBus;
 import br.com.laboon.core.messaging.RedisPublisher;
 import br.com.laboon.core.messaging.RedisSubscriber;
+import br.com.laboon.core.profile.GameCoinsRepository;
 import br.com.laboon.core.profile.PlayerProfile;
 import br.com.laboon.core.profile.ProfileManager;
 import br.com.laboon.core.profile.StatisticsRepository;
@@ -91,6 +92,8 @@ public final class LaboonVelocity {
     private VelocityAccountService velocityAccountService;
 
     private StatisticsRepository statisticsRepository;
+
+    private GameCoinsRepository gameCoinsRepository;
 
     private ProfileManager profileManager;
 
@@ -178,7 +181,8 @@ public final class LaboonVelocity {
         accountManager = new AccountManager(accountService);
         accountSessionManager = new AccountSessionManager();
         statisticsRepository = new StatisticsRepository(redisManager);
-        profileManager = new ProfileManager(accountManager, statisticsRepository);
+        gameCoinsRepository = new GameCoinsRepository(redisManager);
+        profileManager = new ProfileManager(accountManager, statisticsRepository, gameCoinsRepository);
         velocityAccountService = new VelocityAccountService(accountManager, accountSessionManager);
     }
 
