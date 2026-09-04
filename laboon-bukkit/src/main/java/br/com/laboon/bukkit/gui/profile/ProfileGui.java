@@ -104,7 +104,7 @@ public final class ProfileGui {
             head.setItemMeta(meta);
         }
 
-        GuiItem item = GuiItem.item(Material.PLAYER_HEAD).itemStack(head).name(languageService.message(locale, "paper", "profile.account.name", Map.of("name", profile.getName()))).lore(languageService.text(locale, "paper", "profile.account.rank").replace("{rank}", profile.getRank()),
+        GuiItem item = GuiItem.item(Material.PLAYER_HEAD).itemStack(head).name(languageService.message(locale, "paper", "profile.account.name", Map.of("name", profile.getName()))).lore(languageService.text(locale, "paper", "profile.account.rank").replace("{rank}", profile.getGroup().getDisplayName()),
 
                 languageService.text(locale, "paper", "profile.account.uuid").replace("{uuid}", profile.getUniqueId().toString()));
 

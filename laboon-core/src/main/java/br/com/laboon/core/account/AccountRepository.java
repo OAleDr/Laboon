@@ -1,5 +1,6 @@
 package br.com.laboon.core.account;
 
+import br.com.laboon.core.account.group.Group;
 import br.com.laboon.core.language.LanguageLocale;
 import br.com.laboon.core.redis.RedisManager;
 
@@ -28,7 +29,9 @@ public final class AccountRepository {
 
         data.put("name", account.getName());
 
-        data.put("rank", account.getRank());
+        data.put("group", account.getGroup().name());
+
+        data.put("tag", account.getTag());
 
         data.put("experience", String.valueOf(account.getExperience()));
 
@@ -61,7 +64,24 @@ public final class AccountRepository {
 
         Account account = new Account(uniqueId, data.getOrDefault("name", ""), AccountType.valueOf(data.getOrDefault("type", "ORIGINAL")), Instant.parse(data.getOrDefault("createdAt", Instant.now().toString())), parseInstant(data.get("lastLogin")), loadPreferences(data));
 
-        account.setRank(data.getOrDefault("rank", "DEFAULT"));
+        Group group = parseGroup(data.get("group"));
+
+        account.setGroup(group);
+
+        /*
+         * Contas antigas podem não possuir
+         * o campo "tag".
+         *
+         * Nesse caso utilizamos a abreviação
+         * padrão do Group.
+         */
+        String tag = data.get("tag");
+
+        if (tag == null || tag.isBlank()) {
+            tag = group.getAbbreviation();
+        }
+
+        account.setTag(tag);
 
         account.setExperience(Long.parseLong(data.getOrDefault("experience", "0")));
 
@@ -78,8 +98,12 @@ public final class AccountRepository {
         redis.del("laboon:account:" + uniqueId);
     }
 
-    private AccountPreferences loadPreferences(Map<String, String> data) {
+    private Group parseGroup(String value) {
 
+        return Group.fromId(value);
+    }
+
+    private AccountPreferences loadPreferences(Map<String, String> data) {
         LanguageLocale language;
 
         try {

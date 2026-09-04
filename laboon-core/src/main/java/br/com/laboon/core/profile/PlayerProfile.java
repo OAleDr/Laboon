@@ -1,6 +1,7 @@
 package br.com.laboon.core.profile;
 
 import br.com.laboon.core.account.Account;
+import br.com.laboon.core.account.group.Group;
 
 import java.util.Map;
 import java.util.UUID;
@@ -43,13 +44,43 @@ public final class PlayerProfile {
         return account.getName();
     }
 
-    public String getRank() {
-        return account.getRank();
+    /*
+     * =========================
+     * GROUP
+     * =========================
+     */
+
+    public Group getGroup() {
+        return account.getGroup();
     }
 
-    public void setRank(String rank) {
-        account.setRank(rank);
+    public void setGroup(Group group) {
+        account.setGroup(group);
     }
+
+    public boolean hasGroupPermission(Group requiredGroup) {
+        return account.getGroup().hasPermission(requiredGroup);
+    }
+
+    /*
+     * =========================
+     * TAG
+     * =========================
+     */
+
+    public String getTag() {
+        return account.getTag();
+    }
+
+    public void setTag(String tag) {
+        account.setTag(tag);
+    }
+
+    /*
+     * =========================
+     * EXPERIENCE
+     * =========================
+     */
 
     public long getExperience() {
         return account.getExperience();
@@ -83,6 +114,7 @@ public final class PlayerProfile {
 
     public Statistics getStatistics(String game, String mode) {
         String normalizedGame = normalize(game);
+
         String normalizedMode = normalizeNullable(mode);
 
         String cacheKey = createStatisticsCacheKey(normalizedGame, normalizedMode);
@@ -96,6 +128,7 @@ public final class PlayerProfile {
 
     public void saveStatistics(String game, String mode) {
         String normalizedGame = normalize(game);
+
         String normalizedMode = normalizeNullable(mode);
 
         String cacheKey = createStatisticsCacheKey(normalizedGame, normalizedMode);
@@ -151,6 +184,7 @@ public final class PlayerProfile {
         String normalizedGame = normalize(game);
 
         gameCoins.compute(normalizedGame, (key, current) -> {
+
             long coins = current == null ? gameCoinsRepository.find(getUniqueId(), normalizedGame) : current;
 
             return Math.max(0L, coins - amount);
@@ -171,6 +205,7 @@ public final class PlayerProfile {
 
     public void saveAllCoins() {
         for (Map.Entry<String, Long> entry : gameCoins.entrySet()) {
+
             gameCoinsRepository.save(getUniqueId(), entry.getKey(), entry.getValue());
         }
     }

@@ -1,5 +1,7 @@
 package br.com.laboon.core.command;
 
+import br.com.laboon.core.account.group.Group;
+
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -17,7 +19,7 @@ public @interface Command {
 
     String usage() default "";
 
-    String permission() default "";
+    Group group() default Group.DEFAULT;
 
     String[] subcommands() default {};
 }

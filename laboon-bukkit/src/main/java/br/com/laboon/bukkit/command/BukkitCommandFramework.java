@@ -1,6 +1,9 @@
 package br.com.laboon.bukkit.command;
 
+import br.com.laboon.bukkit.profile.ProfileProvider;
+import br.com.laboon.core.account.group.Group;
 import br.com.laboon.core.command.*;
+import br.com.laboon.core.profile.PlayerProfile;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.defaults.BukkitCommand;
@@ -17,14 +20,20 @@ import java.util.List;
 public final class BukkitCommandFramework extends CommandFramework {
 
     private final JavaPlugin plugin;
+    private final ProfileProvider profileProvider;
     private final org.bukkit.command.CommandMap commandMap;
 
-    public BukkitCommandFramework(JavaPlugin plugin) {
+    public BukkitCommandFramework(JavaPlugin plugin, ProfileProvider profileProvider) {
         if (plugin == null) {
             throw new IllegalArgumentException("O plugin não pode ser nulo.");
         }
 
+        if (profileProvider == null) {
+            throw new IllegalArgumentException("O ProfileProvider não pode ser nulo.");
+        }
+
         this.plugin = plugin;
+        this.profileProvider = profileProvider;
         this.commandMap = findCommandMap();
     }
 
@@ -65,15 +74,24 @@ public final class BukkitCommandFramework extends CommandFramework {
     private boolean executeCommand(CommandClass commandClass, Command annotation, CommandSender sender, String label, String[] arguments) {
         BukkitCommandSender commandSender = new BukkitCommandSender(sender);
 
-        String permission = annotation.permission();
+        /*
+         * Verifica o grupo necessário para executar
+         * o comando.
+         */
+        if (!hasGroupPermission(commandSender, annotation.group())) {
 
-        if (!commandSender.hasPermission(permission)) {
             commandSender.sendMessage("§cVocê não possui permissão para executar este comando.");
+
             return true;
         }
 
+        /*
+         * Validação dos subcommands.
+         */
         if (!hasValidSubcommand(annotation, arguments)) {
+
             sendUsage(commandSender, annotation);
+
             return true;
         }
 
@@ -119,11 +137,47 @@ public final class BukkitCommandFramework extends CommandFramework {
         }
     }
 
+    /**
+     * Verifica se o sender possui o grupo necessário
+     * para executar o comando.
+     * <p>
+     * Console não possui PlayerProfile, portanto
+     * comandos de console são permitidos.
+     */
+    private boolean hasGroupPermission(BukkitCommandSender sender, Group requiredGroup) {
+        if (requiredGroup == null || requiredGroup == Group.DEFAULT) {
+
+            return true;
+        }
+
+        /*
+         * Mantém o comportamento do framework antigo:
+         * comandos administrativos podem ser executados
+         * pelo console.
+         */
+        if (!sender.isPlayer()) {
+            return true;
+        }
+
+        PlayerProfile profile = profileProvider.getProfile(sender.getPlayer());
+
+        if (profile == null) {
+
+            sender.sendMessage("§cSeu perfil ainda não foi carregado.");
+
+            return false;
+        }
+
+        return profile.hasGroupPermission(requiredGroup);
+    }
+
     private List<String> completeCommand(CommandClass commandClass, Command annotation, CommandSender sender, String alias, String[] arguments) {
-        String permission = annotation.permission();
+        /*
+         * TAB também respeita o grupo do comando.
+         */
+        BukkitCommandSender commandSender = new BukkitCommandSender(sender);
 
-        if (permission != null && !permission.isBlank() && !sender.hasPermission(permission)) {
-
+        if (!hasGroupPermission(commandSender, annotation.group())) {
             return Collections.emptyList();
         }
 
@@ -137,9 +191,6 @@ public final class BukkitCommandFramework extends CommandFramework {
          * Primeiro nível:
          *
          * /coinstest <TAB>
-         *
-         * Continua utilizando os subcommands
-         * declarados na annotation.
          */
         if (arguments.length <= 1) {
 
@@ -150,6 +201,7 @@ public final class BukkitCommandFramework extends CommandFramework {
             for (String subcommand : subcommands) {
 
                 if (subcommand == null || subcommand.isBlank()) {
+
                     continue;
                 }
 
@@ -202,6 +254,7 @@ public final class BukkitCommandFramework extends CommandFramework {
         }
 
         if (arguments == null || arguments.length == 0) {
+
             return false;
         }
 
@@ -246,11 +299,21 @@ public final class BukkitCommandFramework extends CommandFramework {
 
         Class<?>[] parameterTypes = method.getParameterTypes();
 
+        /*
+         * @Command
+         * public void execute()
+         */
         if (parameterTypes.length == 0) {
+
             method.invoke(commandClass);
+
             return;
         }
 
+        /*
+         * @Command
+         * public void execute(BukkitCommandArgs args)
+         */
         if (parameterTypes.length == 1 && parameterTypes[0].isAssignableFrom(BukkitCommandArgs.class)) {
 
             method.invoke(commandClass, args);
@@ -258,6 +321,10 @@ public final class BukkitCommandFramework extends CommandFramework {
             return;
         }
 
+        /*
+         * @Command
+         * public void execute(CommandArgs args)
+         */
         if (parameterTypes.length == 1 && parameterTypes[0].isAssignableFrom(CommandArgs.class)) {
 
             method.invoke(commandClass, args);

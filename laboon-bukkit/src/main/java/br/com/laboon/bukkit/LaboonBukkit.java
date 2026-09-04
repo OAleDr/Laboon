@@ -1,5 +1,7 @@
 package br.com.laboon.bukkit;
 
+import br.com.laboon.bukkit.chat.ChatFormatter;
+import br.com.laboon.bukkit.chat.ChatListener;
 import br.com.laboon.bukkit.command.BukkitCommandFramework;
 import br.com.laboon.bukkit.command.BukkitCommandProvider;
 import br.com.laboon.bukkit.config.RedisConfig;
@@ -11,6 +13,9 @@ import br.com.laboon.bukkit.profile.BukkitProfileProvider;
 import br.com.laboon.bukkit.profile.ProfileListener;
 import br.com.laboon.bukkit.profile.ProfileProvider;
 import br.com.laboon.bukkit.server.ServerHeartbeat;
+import br.com.laboon.bukkit.tab.BukkitTabManager;
+import br.com.laboon.bukkit.tab.TabListener;
+
 import br.com.laboon.core.account.AccountRepository;
 import br.com.laboon.core.command.CommandClass;
 import br.com.laboon.core.command.CommandLoader;
@@ -26,6 +31,7 @@ import br.com.laboon.core.messaging.RedisSubscriber;
 import br.com.laboon.core.profile.GameCoinsRepository;
 import br.com.laboon.core.profile.StatisticsRepository;
 import br.com.laboon.core.redis.RedisManager;
+
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.nio.file.Files;
@@ -37,25 +43,27 @@ public final class LaboonBukkit extends JavaPlugin {
     private static LaboonBukkit instance;
 
     private RedisManager redisManager;
-
     private MessageBus messageBus;
-
     private ServerHeartbeat heartbeat;
 
     private GuiManager guiManager;
 
     private AccountRepository accountRepository;
-
     private StatisticsRepository statisticsRepository;
-
     private GameCoinsRepository gameCoinsRepository;
 
     private ProfileProvider profileProvider;
 
+    private ServerConfig serverConfig;
+
+    private BukkitTabManager tabManager;
+    private TabListener tabListener;
+
+    private ChatFormatter chatFormatter;
+
     private LanguageService languageService;
 
     private BukkitCommandFramework commandFramework;
-
 
     @Override
     public void onEnable() {
@@ -66,27 +74,39 @@ public final class LaboonBukkit extends JavaPlugin {
         getLogger().info("          LABOON BUKKIT");
         getLogger().info("=================================");
 
+        saveDefaultConfig();
+
+        loadServerConfig();
+
         connectRedis();
 
-        if (redisManager == null) {
+        if (redisManager == null || !redisManager.isConnected()) {
             return;
         }
 
         setupLanguage();
 
-        registerListeners();
-
         setupMessaging();
 
-        saveDefaultConfig();
+        registerListeners();
 
         registerCommands();
 
         startHeartbeat();
 
+        if (tabListener != null) {
+            tabListener.start();
+        }
+
         getLogger().info("Laboon Bukkit iniciado!");
     }
 
+    private void loadServerConfig() {
+
+        serverConfig = ServerConfigLoader.load(this);
+
+        getLogger().info("Servidor configurado: " + serverConfig.getServerName() + " [" + serverConfig.getServerType() + "/" + serverConfig.getServerRole() + "]");
+    }
 
     private void connectRedis() {
 
@@ -113,16 +133,9 @@ public final class LaboonBukkit extends JavaPlugin {
 
         profileProvider = new BukkitProfileProvider(accountRepository, statisticsRepository, gameCoinsRepository);
 
+        tabManager = new BukkitTabManager(profileProvider, serverConfig);
+
         getLogger().info("Redis conectado com sucesso!");
-    }
-
-    private void setupLanguageFiles() {
-
-        saveResource("languages/pt_BR.yml", false);
-
-        saveResource("languages/en_US.yml", false);
-
-        saveResource("languages/es_ES.yml", false);
     }
 
     private void setupLanguage() {
@@ -142,7 +155,6 @@ public final class LaboonBukkit extends JavaPlugin {
         getLogger().info("Sistema de idiomas iniciado.");
     }
 
-
     private void registerListeners() {
 
         guiManager = new GuiManager();
@@ -151,12 +163,20 @@ public final class LaboonBukkit extends JavaPlugin {
 
         getServer().getPluginManager().registerEvents(new ProfileListener(profileProvider), this);
 
+        tabListener = new TabListener(this, tabManager);
+
+        getServer().getPluginManager().registerEvents(tabListener, this);
+
+        chatFormatter = new ChatFormatter(profileProvider);
+
+        getServer().getPluginManager().registerEvents(new ChatListener(this, chatFormatter), this);
+
         getLogger().info("Listeners registrados.");
     }
 
     private void registerCommands() {
 
-        BukkitCommandFramework commandFramework = new BukkitCommandFramework(this);
+        commandFramework = new BukkitCommandFramework(this, profileProvider);
 
         CommandProvider commandProvider = new BukkitCommandProvider(guiManager, profileProvider, languageService);
 
@@ -176,34 +196,31 @@ public final class LaboonBukkit extends JavaPlugin {
         messageBus = new MessageBus(publisher, subscriber);
     }
 
-
     private void startHeartbeat() {
 
-        ServerConfig config = ServerConfigLoader.load(this);
-
-        heartbeat = new ServerHeartbeat(this, redisManager, config, messageBus);
+        heartbeat = new ServerHeartbeat(this, redisManager, serverConfig, messageBus);
 
         heartbeat.start();
 
-        getLogger().info("Heartbeat iniciado: " + config.getServerName() + " [" + config.getServerType() + "/" + config.getServerRole() + "]");
+        getLogger().info("Heartbeat iniciado: " + serverConfig.getServerName() + " [" + serverConfig.getServerType() + "/" + serverConfig.getServerRole() + "]");
     }
-
 
     @Override
     public void onDisable() {
 
-        if (profileProvider != null) {
+        if (tabListener != null) {
+            tabListener.stop();
+        }
 
+        if (profileProvider != null) {
             profileProvider.saveAll();
         }
 
         if (heartbeat != null) {
-
             heartbeat.stop();
         }
 
         if (redisManager != null) {
-
             redisManager.close();
         }
 
@@ -213,31 +230,26 @@ public final class LaboonBukkit extends JavaPlugin {
     }
 
     public static LaboonBukkit getInstance() {
-
         return instance;
     }
 
-
     public RedisManager getRedisManager() {
-
         return redisManager;
     }
 
-
     public GuiManager getGuiManager() {
-
         return guiManager;
     }
 
-
     public LanguageService getLanguageService() {
-
         return languageService;
     }
 
-
     public ProfileProvider getProfileProvider() {
-
         return profileProvider;
+    }
+
+    public ServerConfig getServerConfig() {
+        return serverConfig;
     }
 }
