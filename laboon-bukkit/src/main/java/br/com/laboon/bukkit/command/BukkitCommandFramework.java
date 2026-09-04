@@ -172,29 +172,45 @@ public final class BukkitCommandFramework extends CommandFramework {
     }
 
     private List<String> completeCommand(CommandClass commandClass, Command annotation, CommandSender sender, String alias, String[] arguments) {
+
         /*
          * TAB também respeita o grupo do comando.
          */
         BukkitCommandSender commandSender = new BukkitCommandSender(sender);
 
         if (!hasGroupPermission(commandSender, annotation.group())) {
+
             return Collections.emptyList();
         }
-
-        String[] subcommands = annotation.subcommands();
 
         if (arguments == null) {
             arguments = new String[0];
         }
 
-        /*
-         * Primeiro nível:
-         *
-         * /coinstest <TAB>
-         */
-        if (arguments.length <= 1) {
+        String[] subcommands = annotation.subcommands();
 
-            String input = arguments.length == 0 ? "" : arguments[0].toLowerCase();
+        /*
+         * ---------------------------------------------------------
+         * COMANDOS COM SUBCOMMANDS
+         * ---------------------------------------------------------
+         *
+         * Exemplo:
+         *
+         * /group <TAB>
+         *
+         * set
+         * remove
+         * get
+         */
+        if (subcommands.length > 0 && arguments.length <= 1) {
+
+            String input = arguments.length == 0 ? "" : arguments[0];
+
+            if (input == null) {
+                input = "";
+            }
+
+            input = input.toLowerCase();
 
             List<String> suggestions = new ArrayList<>();
 
@@ -215,12 +231,21 @@ public final class BukkitCommandFramework extends CommandFramework {
         }
 
         /*
-         * A partir daqui o comando pode fornecer
-         * seu próprio Completer.
+         * ---------------------------------------------------------
+         * COMPLETER DO PRÓPRIO COMANDO
+         * ---------------------------------------------------------
+         *
+         * Comandos sem subcommands também
+         * chegam aqui.
+         *
+         * Exemplo:
+         *
+         * /tag <TAB>
          */
         Completer completer = commandClass.getCompleter();
 
         if (completer == null) {
+
             return Collections.emptyList();
         }
 
@@ -231,6 +256,7 @@ public final class BukkitCommandFramework extends CommandFramework {
             List<String> suggestions = completer.complete(commandArgs);
 
             if (suggestions == null) {
+
                 return Collections.emptyList();
             }
 

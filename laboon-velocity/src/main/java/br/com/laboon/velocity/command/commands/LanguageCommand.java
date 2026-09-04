@@ -1,4 +1,4 @@
-package br.com.laboon.velocity.command;
+package br.com.laboon.velocity.command.commands;
 
 import br.com.laboon.core.account.Account;
 import br.com.laboon.core.account.AccountManager;

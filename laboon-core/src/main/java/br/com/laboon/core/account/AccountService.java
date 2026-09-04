@@ -10,13 +10,15 @@ public final class AccountService {
     private final AccountRepository repository;
 
     public AccountService(RedisManager redisManager) {
-
         this.repository = new AccountRepository(redisManager);
     }
 
     public Account find(UUID uniqueId) {
-
         return repository.findById(uniqueId);
+    }
+
+    public Account findByName(String name) {
+        return repository.findByName(name);
     }
 
     public Account getOrCreateOriginal(UUID uniqueId, String name) {
@@ -26,6 +28,8 @@ public final class AccountService {
         if (account != null) {
 
             account.setName(name);
+
+            repository.save(account);
 
             return account;
         }
@@ -38,7 +42,6 @@ public final class AccountService {
     }
 
     public void save(Account account) {
-
         repository.save(account);
     }
 
@@ -50,12 +53,10 @@ public final class AccountService {
     }
 
     public boolean exists(UUID uniqueId) {
-
         return repository.exists(uniqueId);
     }
 
     public void delete(UUID uniqueId) {
-
         repository.delete(uniqueId);
     }
 }

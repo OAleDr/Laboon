@@ -3,6 +3,9 @@ package br.com.laboon.core.account;
 import br.com.laboon.core.account.group.Group;
 
 import java.time.Instant;
+import java.util.Collections;
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.UUID;
 
 public final class Account {
@@ -25,6 +28,8 @@ public final class Account {
 
     private AccountPreferences preferences;
 
+    private final Map<Group, Instant> temporaryGroups;
+
     public Account(UUID uniqueId, String name) {
         this(uniqueId, name, AccountType.ORIGINAL, Instant.now(), null, new AccountPreferences());
     }
@@ -44,6 +49,8 @@ public final class Account {
         this.lastLogin = lastLogin;
 
         this.preferences = preferences;
+
+        this.temporaryGroups = new EnumMap<>(Group.class);
     }
 
     public UUID getUniqueId() {
@@ -70,6 +77,46 @@ public final class Account {
 
     public void setGroup(Group group) {
         this.group = group == null ? Group.DEFAULT : group;
+    }
+
+    /*
+     * =========================
+     * TEMPORARY GROUPS
+     * =========================
+     */
+
+    public Map<Group, Instant> getTemporaryGroups() {
+        return Collections.unmodifiableMap(temporaryGroups);
+    }
+
+    public void setTemporaryGroup(Group group, Instant expiresAt) {
+        if (group == null || expiresAt == null) {
+            return;
+        }
+
+        temporaryGroups.put(group, expiresAt);
+    }
+
+    public void removeTemporaryGroup(Group group) {
+        if (group == null) {
+            return;
+        }
+
+        temporaryGroups.remove(group);
+    }
+
+    public boolean hasTemporaryGroup(Group group) {
+        if (group == null) {
+            return false;
+        }
+
+        Instant expiresAt = temporaryGroups.get(group);
+
+        if (expiresAt == null) {
+            return false;
+        }
+
+        return expiresAt.isAfter(Instant.now());
     }
 
     /*

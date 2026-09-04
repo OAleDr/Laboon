@@ -1,8 +1,10 @@
 package br.com.laboon.velocity;
 
-import br.com.laboon.core.account.AccountManager;
-import br.com.laboon.core.account.AccountService;
-import br.com.laboon.core.account.AccountSessionManager;
+import br.com.laboon.core.account.*;
+import br.com.laboon.core.account.group.GroupUpdatePublisher;
+import br.com.laboon.core.command.CommandLoader;
+import br.com.laboon.core.command.CommandScanner;
+import br.com.laboon.core.command.CommandClass;
 import br.com.laboon.core.language.LanguageService;
 import br.com.laboon.core.messaging.MessageBus;
 import br.com.laboon.core.messaging.RedisPublisher;
@@ -15,9 +17,11 @@ import br.com.laboon.core.redis.RedisManager;
 import br.com.laboon.core.server.ServerRegistry;
 
 import br.com.laboon.velocity.account.VelocityAccountService;
-import br.com.laboon.velocity.command.LaboonCommand;
-import br.com.laboon.velocity.command.LanguageCommand;
-import br.com.laboon.velocity.command.ServerCommand;
+import br.com.laboon.velocity.command.VelocityCommandFramework;
+import br.com.laboon.velocity.command.VelocityCommandProvider;
+import br.com.laboon.velocity.command.commands.LaboonCommand;
+import br.com.laboon.velocity.command.commands.LanguageCommand;
+import br.com.laboon.velocity.command.commands.ServerCommand;
 import br.com.laboon.velocity.config.VelocityConfig;
 import br.com.laboon.velocity.language.VelocityLanguage;
 import br.com.laboon.velocity.listener.AccountConnectionListener;
@@ -40,22 +44,35 @@ import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 
 import com.velocitypowered.api.scheduler.ScheduledTask;
+
 import org.slf4j.Logger;
 
 import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
 
-@Plugin(id = "laboon", name = "Laboon", version = "1.0.0-SNAPSHOT", description = "Laboon Network", authors = {"Laboon"})
+@Plugin(id = "laboon", name = "Laboon", version = "1.0.0-SNAPSHOT", description = "Laboon Network", authors = {"oAleDr"})
 public final class LaboonVelocity {
 
     private final ProxyServer proxyServer;
     private final Logger logger;
+
+    /*
+     * =========================
+     * INFRAESTRUTURA
+     * =========================
+     */
 
     private RedisManager redisManager;
 
     private LanguageService languageService;
 
     private MessageBus messageBus;
+
+    /*
+     * =========================
+     * SERVIDORES
+     * =========================
+     */
 
     private PlayerManager playerManager;
 
@@ -79,17 +96,43 @@ public final class LaboonVelocity {
 
     private PlayerServerService playerServerService;
 
+    private ServerCache serverCache;
+
+    private ScheduledTask serverSyncTask;
+
+    /*
+     * =========================
+     * MENSAGENS
+     * =========================
+     */
+
     private VelocityMessageService messageService;
 
-    private ServerCache serverCache;
+    private GroupUpdatePublisher groupUpdatePublisher;
+
+    /*
+     * =========================
+     * CONTAS
+     * =========================
+     */
 
     private AccountService accountService;
 
     private AccountManager accountManager;
 
+    private AccountRepository accountRepository;
+
     private AccountSessionManager accountSessionManager;
 
+    private TemporaryGroupService temporaryGroupService;
+
     private VelocityAccountService velocityAccountService;
+
+    /*
+     * =========================
+     * PERFIL
+     * =========================
+     */
 
     private StatisticsRepository statisticsRepository;
 
@@ -97,47 +140,113 @@ public final class LaboonVelocity {
 
     private ProfileManager profileManager;
 
-    private ScheduledTask serverSyncTask;
+    /*
+     * =========================
+     * COMANDOS
+     * =========================
+     */
+
+    private VelocityCommandProvider commandProvider;
+
+    private VelocityCommandFramework commandFramework;
 
     @Inject
     public LaboonVelocity(ProxyServer proxyServer, Logger logger) {
-
         this.proxyServer = proxyServer;
         this.logger = logger;
     }
+
+    /*
+     * =========================
+     * INITIALIZE
+     * =========================
+     */
 
     @Subscribe
     public void onProxyInitialize(ProxyInitializeEvent event) {
 
         logger.info("=================================");
-
         logger.info("          LABOON NETWORK");
-
         logger.info("=================================");
 
         VelocityConfig config = VelocityConfig.defaultConfig();
+
+        /*
+         * =========================
+         * INFRAESTRUTURA
+         * =========================
+         */
 
         connectRedis(config);
 
         setupLanguage();
 
+        /*
+         * =========================
+         * SERVIÇOS / MANAGERS
+         * =========================
+         */
+
         setupManagers();
+
+        /*
+         * =========================
+         * SERVIDORES
+         * =========================
+         */
 
         registerServers();
 
         startServerSync();
 
+        /*
+         * =========================
+         * MESSAGING
+         * =========================
+         */
+
         setupMessaging();
+
+        /*
+         * =========================
+         * COMMAND FRAMEWORK
+         * =========================
+         */
+
+        setupCommandFramework();
+
+        /*
+         * =========================
+         * HEARTBEAT
+         * =========================
+         */
 
         setupHeartbeat(config);
 
+        /*
+         * =========================
+         * COMANDOS
+         * =========================
+         */
+
         registerCommands();
+
+        /*
+         * =========================
+         * LISTENERS
+         * =========================
+         */
 
         registerListeners();
 
-
         logger.info("Laboon inicializado com sucesso!");
     }
+
+    /*
+     * =========================
+     * REDIS
+     * =========================
+     */
 
     private void connectRedis(VelocityConfig config) {
 
@@ -153,6 +262,12 @@ public final class LaboonVelocity {
         logger.info("Redis conectado com sucesso!");
     }
 
+    /*
+     * =========================
+     * LANGUAGE
+     * =========================
+     */
+
     private void setupLanguage() {
 
         Path languageDirectory = Path.of("plugins", "Laboon", "languages");
@@ -164,27 +279,86 @@ public final class LaboonVelocity {
         logger.info("Sistema de linguagem inicializado.");
     }
 
+    /*
+     * =========================
+     * MANAGERS
+     * =========================
+     */
+
     private void setupManagers() {
 
+        /*
+         * =========================
+         * PLAYER
+         * =========================
+         */
+
         playerManager = new PlayerManager(proxyServer);
+
+        /*
+         * =========================
+         * SERVIDORES
+         * =========================
+         */
+
         serverRegistry = new ServerRegistry(redisManager);
+
         serverManager = new ProxyServerManager(serverRegistry);
+
         registrationService = new ServerRegistrationService(proxyServer, serverRegistry);
+
         serverCache = new ServerCache();
+
         serverAvailabilityService = new ServerAvailabilityService();
+
         serverRegistrySync = new ServerRegistrySync(serverRegistry, registrationService, serverCache);
+
         serverSelector = new ServerSelector(serverManager, serverAvailabilityService);
+
         connectionService = new ServerConnectionService(proxyServer, serverAvailabilityService);
+
         playerServerService = new PlayerServerService(serverRegistry);
+
         fallbackService = new ServerFallbackService(serverSelector, connectionService);
+
+        /*
+         * =========================
+         * CONTAS
+         * =========================
+         */
+
         accountService = new AccountService(redisManager);
+
         accountManager = new AccountManager(accountService);
+
+        accountRepository = new AccountRepository(redisManager);
+
+        temporaryGroupService = new TemporaryGroupService(accountRepository);
+
         accountSessionManager = new AccountSessionManager();
-        statisticsRepository = new StatisticsRepository(redisManager);
-        gameCoinsRepository = new GameCoinsRepository(redisManager);
-        profileManager = new ProfileManager(accountManager, statisticsRepository, gameCoinsRepository);
+
         velocityAccountService = new VelocityAccountService(accountManager, accountSessionManager);
+
+        /*
+         * =========================
+         * PERFIL
+         * =========================
+         */
+
+        statisticsRepository = new StatisticsRepository(redisManager);
+
+        gameCoinsRepository = new GameCoinsRepository(redisManager);
+
+        profileManager = new ProfileManager(accountManager, statisticsRepository, gameCoinsRepository);
+
+        logger.info("Managers inicializados.");
     }
+
+    /*
+     * =========================
+     * MESSAGING
+     * =========================
+     */
 
     private void setupMessaging() {
 
@@ -194,12 +368,47 @@ public final class LaboonVelocity {
 
         messageBus = new MessageBus(publisher, subscriber);
 
+        /*
+         * =========================
+         * GRUPO UPDATE
+         * =========================
+         */
+
+        groupUpdatePublisher = new GroupUpdatePublisher(messageBus);
+
+        /*
+         * =========================
+         * MESSAGE SERVICE
+         * =========================
+         */
+
         messageService = new VelocityMessageService(messageBus, registrationService);
 
         messageService.listen();
 
         logger.info("Messaging inicializado.");
     }
+
+    /*
+     * =========================
+     * COMMAND FRAMEWORK
+     * =========================
+     */
+
+    private void setupCommandFramework() {
+
+        commandProvider = new VelocityCommandProvider(proxyServer, profileManager, languageService, temporaryGroupService, groupUpdatePublisher);
+
+        commandFramework = new VelocityCommandFramework(proxyServer, logger, commandProvider, profileManager);
+
+        logger.info("Command Framework inicializado.");
+    }
+
+    /*
+     * =========================
+     * HEARTBEAT
+     * =========================
+     */
 
     private void setupHeartbeat(VelocityConfig config) {
 
@@ -210,6 +419,12 @@ public final class LaboonVelocity {
         logger.info("Proxy Heartbeat iniciado.");
     }
 
+    /*
+     * =========================
+     * SERVER REGISTRATION
+     * =========================
+     */
+
     private void registerServers() {
 
         logger.info("Registrando servidores do Redis...");
@@ -219,6 +434,12 @@ public final class LaboonVelocity {
         logger.info("Servidores registrados.");
     }
 
+    /*
+     * =========================
+     * SERVER SYNC
+     * =========================
+     */
+
     private void startServerSync() {
 
         serverSyncTask = proxyServer.getScheduler().buildTask(this, () -> serverRegistrySync.sync()).repeat(5, TimeUnit.SECONDS).schedule();
@@ -226,22 +447,50 @@ public final class LaboonVelocity {
         logger.info("Sincronização de servidores iniciada.");
     }
 
+    /*
+     * =========================
+     * COMMANDS
+     * =========================
+     */
+
     private void registerCommands() {
 
-        proxyServer.getCommandManager().register(proxyServer.getCommandManager().metaBuilder("laboon").build(),
+        logger.info("=================================");
 
-                new LaboonCommand());
+        logger.info("Registrando comandos...");
 
-        proxyServer.getCommandManager().register(proxyServer.getCommandManager().metaBuilder("server").aliases("servers").build(),
+        logger.info("=================================");
 
-                new ServerCommand(serverSelector, connectionService, serverAvailabilityService, languageService, velocityAccountService));
+        /*
+         * =========================
+         * NOVO COMMAND FRAMEWORK
+         * =========================
+         */
 
-        proxyServer.getCommandManager().register(proxyServer.getCommandManager().metaBuilder("language").aliases("lang", "idioma").build(),
+        CommandLoader.load(commandFramework, CommandScanner.scan("br.com.laboon.velocity.command.commands"), commandProvider);
 
-                new LanguageCommand(accountManager, languageService));
+        logger.info("Comandos carregados pelo CommandLoader.");
+
+        /*
+         * =========================
+         * COMANDOS LEGADOS
+         * =========================
+         */
+
+        proxyServer.getCommandManager().register(proxyServer.getCommandManager().metaBuilder("laboon").build(), new LaboonCommand());
+
+        proxyServer.getCommandManager().register(proxyServer.getCommandManager().metaBuilder("server").aliases("servers").build(), new ServerCommand(serverSelector, connectionService, serverAvailabilityService, languageService, velocityAccountService));
+
+        proxyServer.getCommandManager().register(proxyServer.getCommandManager().metaBuilder("language").aliases("lang", "idioma").build(), new LanguageCommand(accountManager, languageService));
 
         logger.info("Comandos registrados.");
     }
+
+    /*
+     * =========================
+     * LISTENERS
+     * =========================
+     */
 
     private void registerListeners() {
 
@@ -256,68 +505,112 @@ public final class LaboonVelocity {
         logger.info("Listeners registrados.");
     }
 
+    /*
+     * =========================
+     * SHUTDOWN
+     * =========================
+     */
+
     @Subscribe
     public void onProxyShutdown(ProxyShutdownEvent event) {
 
         logger.info("Desligando Laboon...");
 
         if (serverSyncTask != null) {
+
             serverSyncTask.cancel();
         }
 
         if (proxyHeartbeat != null) {
+
             proxyHeartbeat.stop();
         }
 
         if (redisManager != null) {
+
             redisManager.close();
         }
 
         logger.info("Laboon encerrado.");
     }
 
+    /*
+     * =========================
+     * GETTERS
+     * =========================
+     */
+
     public ProxyServer getProxyServer() {
+
         return proxyServer;
     }
 
     public MessageBus getMessageBus() {
+
         return messageBus;
     }
 
     public PlayerManager getPlayerManager() {
+
         return playerManager;
     }
 
     public ProxyServerManager getServerManager() {
+
         return serverManager;
     }
 
     public ServerSelector getServerSelector() {
+
         return serverSelector;
     }
 
     public ServerAvailabilityService getServerAvailabilityService() {
+
         return serverAvailabilityService;
     }
 
     public ServerFallbackService getFallbackService() {
+
         return fallbackService;
     }
 
     public PlayerServerService getPlayerServerService() {
+
         return playerServerService;
     }
 
     public ServerCache getServerCache() {
+
         return serverCache;
     }
 
     public LanguageService getLanguageService() {
+
         return languageService;
     }
 
-    public PlayerProfile getProfile(Player player) {
-        return profileManager.get(player.getUniqueId());
+    public VelocityCommandFramework getCommandFramework() {
+
+        return commandFramework;
     }
 
+    public VelocityCommandProvider getCommandProvider() {
+
+        return commandProvider;
+    }
+
+    public TemporaryGroupService getTemporaryGroupService() {
+
+        return temporaryGroupService;
+    }
+
+    public PlayerProfile getProfile(Player player) {
+
+        if (player == null) {
+            return null;
+        }
+
+        return profileManager.get(player.getUniqueId());
+    }
 }

@@ -1,4 +1,4 @@
-package br.com.laboon.bukkit.tab;
+package br.com.laboon.bukkit.display;
 
 import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
@@ -9,25 +9,24 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 
-public final class TabListener implements Listener {
+public final class DisplayListener implements Listener {
 
     private final JavaPlugin plugin;
-    private final BukkitTabManager tabManager;
+    private final DisplayManager displayManager;
 
     private BukkitTask updateTask;
 
-    public TabListener(JavaPlugin plugin, BukkitTabManager tabManager) {
-
+    public DisplayListener(JavaPlugin plugin, DisplayManager displayManager) {
         if (plugin == null) {
             throw new IllegalArgumentException("O plugin não pode ser nulo.");
         }
 
-        if (tabManager == null) {
-            throw new IllegalArgumentException("O BukkitTabManager não pode ser nulo.");
+        if (displayManager == null) {
+            throw new IllegalArgumentException("O DisplayManager não pode ser nulo.");
         }
 
         this.plugin = plugin;
-        this.tabManager = tabManager;
+        this.displayManager = displayManager;
     }
 
     public void start() {
@@ -36,12 +35,7 @@ public final class TabListener implements Listener {
             return;
         }
 
-        updateTask = Bukkit.getScheduler().runTaskTimer(
-                plugin,
-                tabManager::updateAll,
-                0L,
-                20L
-        );
+        updateTask = Bukkit.getScheduler().runTaskTimer(plugin, displayManager::updateAll, 0L, 20L);
     }
 
     public void stop() {
@@ -56,17 +50,19 @@ public final class TabListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onJoin(PlayerJoinEvent event) {
+        event.joinMessage(null);
 
-        tabManager.update(event.getPlayer());
+        displayManager.update(event.getPlayer());
 
-        tabManager.updateAll();
+        displayManager.updateAll();
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onQuit(PlayerQuitEvent event) {
+        event.quitMessage(null);
 
-        tabManager.removePlayer(event.getPlayer());
-        tabManager.updateAll();
+        displayManager.removePlayer(event.getPlayer());
+
+        displayManager.updateAll();
     }
-
 }

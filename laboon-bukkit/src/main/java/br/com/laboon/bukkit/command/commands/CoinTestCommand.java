@@ -2,6 +2,7 @@ package br.com.laboon.bukkit.command.commands;
 
 import br.com.laboon.bukkit.command.BukkitCommandArgs;
 import br.com.laboon.bukkit.profile.ProfileProvider;
+import br.com.laboon.core.account.group.Group;
 import br.com.laboon.core.command.Command;
 import br.com.laboon.core.command.CommandClass;
 import br.com.laboon.core.command.Completer;
@@ -46,7 +47,7 @@ public final class CoinTestCommand implements CommandClass {
         };
     }
 
-    @Command(name = "coinstest", description = "Testa o sistema de coins.", usage = "/coinstest <get|add|remove> <jogo> [quantidade]", subcommands = {"get", "add", "remove"})
+    @Command(name = "coinstest", description = "Testa o sistema de coins.", usage = "/coinstest <get|add|remove> <jogo> [quantidade]", subcommands = {"get", "add", "remove"}, group = Group.ADMIN)
     public void execute(BukkitCommandArgs args) {
 
         if (!args.isPlayer()) {

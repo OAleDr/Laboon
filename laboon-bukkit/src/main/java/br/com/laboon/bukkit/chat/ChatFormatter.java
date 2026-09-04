@@ -17,90 +17,111 @@ public final class ChatFormatter {
     public ChatFormatter(ProfileProvider profileProvider) {
 
         if (profileProvider == null) {
-            throw new IllegalArgumentException(
-                    "O ProfileProvider não pode ser nulo."
-            );
+            throw new IllegalArgumentException("O ProfileProvider não pode ser nulo.");
         }
 
         this.profileProvider = profileProvider;
     }
 
-    public Component format(
-            Player player,
-            String message
-    ) {
+    public Component format(Player player, String message) {
 
         if (player == null) {
-            throw new IllegalArgumentException(
-                    "O jogador não pode ser nulo."
-            );
+            throw new IllegalArgumentException("O jogador não pode ser nulo.");
         }
 
         if (message == null) {
-            throw new IllegalArgumentException(
-                    "A mensagem não pode ser nula."
-            );
+            throw new IllegalArgumentException("A mensagem não pode ser nula.");
         }
 
-        PlayerProfile profile =
-                profileProvider.getProfile(player);
+        PlayerProfile profile = profileProvider.getProfile(player);
 
+        /*
+         * Caso o perfil ainda não esteja carregado.
+         */
         if (profile == null) {
 
-            return Component.textOfChildren(
-                    Component.text(
-                            player.getName(),
-                            NamedTextColor.WHITE
-                    ),
-                    Component.text(
-                            ": ",
-                            NamedTextColor.GRAY
-                    ),
-                    Component.text(
-                            message,
-                            NamedTextColor.WHITE
-                    )
-            );
+            return Component.textOfChildren(Component.text(player.getName(), NamedTextColor.WHITE), Component.text(": ", NamedTextColor.GRAY), Component.text(message, NamedTextColor.WHITE));
         }
-
-        Group group = profile.getGroup();
 
         String tag = profile.getTag();
 
-        TextColor tagColor = TextColor.color(
-                getMinecraftColor(
-                        group.getColor()
-                )
-        );
+        Component tagComponent = Component.empty();
 
-        Component tagComponent =
-                Component.empty();
-
+        /*
+         * Só adiciona a tag se o jogador
+         * tiver uma tag selecionada.
+         *
+         * /tag off
+         * -> tag vazia
+         * -> não aparece no chat.
+         */
         if (tag != null && !tag.isBlank()) {
 
-            tagComponent = Component.text(
-                    tag,
-                    tagColor
-            ).append(
-                    Component.space()
-            );
+            /*
+             * Procura o grupo correspondente
+             * à tag selecionada.
+             */
+            Group tagGroup = findGroupByTag(tag);
+
+            /*
+             * Se encontrou o grupo da tag,
+             * usa a cor dele.
+             *
+             * Caso contrário, utiliza a cor
+             * do grupo efetivo como fallback.
+             */
+            char color;
+
+            if (tagGroup != null) {
+
+                color = tagGroup.getColor();
+
+            } else {
+
+                color = profile.getGroup().getColor();
+            }
+
+            TextColor tagColor = TextColor.color(getMinecraftColor(color));
+
+            tagComponent = Component.text(tag, tagColor).append(Component.space());
         }
 
-        return Component.textOfChildren(
-                tagComponent,
-                Component.text(
-                        player.getName(),
-                        NamedTextColor.WHITE
-                ),
-                Component.text(
-                        ": ",
-                        NamedTextColor.GRAY
-                ),
-                Component.text(
-                        message,
-                        NamedTextColor.WHITE
-                )
-        );
+        return Component.textOfChildren(tagComponent, Component.text(player.getName(), NamedTextColor.WHITE), Component.text(": ", NamedTextColor.GRAY), Component.text(message, NamedTextColor.WHITE));
+    }
+
+    /**
+     * Procura o grupo correspondente
+     * à tag selecionada.
+     * <p>
+     * Exemplos:
+     * <p>
+     * ADM    -> ADMIN
+     * MOD++  -> MODPLUS
+     * LEG+   -> LEGENDPLUS
+     * LEG    -> LEGEND
+     * EXP+   -> EXPLORERPLUS
+     * EXP    -> EXPLORER
+     */
+    private Group findGroupByTag(String tag) {
+
+        if (tag == null || tag.isBlank()) {
+
+            return null;
+        }
+
+        for (Group group : Group.values()) {
+
+            if (group == Group.DEFAULT) {
+                continue;
+            }
+
+            if (group.getAbbreviation().equalsIgnoreCase(tag.trim())) {
+
+                return group;
+            }
+        }
+
+        return null;
     }
 
     private int getMinecraftColor(char color) {

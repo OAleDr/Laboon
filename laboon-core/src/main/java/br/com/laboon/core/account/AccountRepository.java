@@ -13,6 +13,15 @@ import java.util.UUID;
 
 public final class AccountRepository {
 
+    private static final String ACCOUNT_KEY_PREFIX =
+            "laboon:account:";
+
+    private static final String ACCOUNT_NAME_KEY_PREFIX =
+            "laboon:account:name:";
+
+    private static final String TEMPORARY_GROUP_PREFIX =
+            "temporaryGroup:";
+
     private final JedisPooled redis;
 
     public AccountRepository(RedisManager redisManager) {
@@ -21,106 +30,551 @@ public final class AccountRepository {
 
     public void save(Account account) {
 
-        String key = "laboon:account:" + account.getUniqueId();
+        String key =
+                ACCOUNT_KEY_PREFIX
+                        + account.getUniqueId();
 
-        AccountPreferences preferences = account.getPreferences();
+        /*
+         * Recupera o nome antigo antes de alterar
+         * a conta. Isso permite atualizar o índice
+         * caso o jogador tenha mudado de nome.
+         */
+        String previousName =
+                redis.hget(key, "name");
 
-        Map<String, String> data = new HashMap<>();
+        String currentName =
+                normalizeName(account.getName());
 
-        data.put("name", account.getName());
+        /*
+         * Remove o índice antigo caso o nome tenha
+         * sido alterado.
+         */
+        if (previousName != null
+                && !previousName.isBlank()
+                && !normalizeName(previousName)
+                .equals(currentName)) {
 
-        data.put("group", account.getGroup().name());
+            redis.del(
+                    ACCOUNT_NAME_KEY_PREFIX
+                            + normalizeName(previousName)
+            );
+        }
 
-        data.put("tag", account.getTag());
+        AccountPreferences preferences =
+                account.getPreferences();
 
-        data.put("experience", String.valueOf(account.getExperience()));
+        Map<String, String> data =
+                new HashMap<>();
 
-        data.put("type", account.getType().name());
+        data.put(
+                "name",
+                account.getName()
+        );
 
-        data.put("createdAt", account.getCreatedAt().toString());
+        data.put(
+                "group",
+                account.getGroup().name()
+        );
 
-        data.put("lastLogin", account.getLastLogin() == null ? "" : account.getLastLogin().toString());
+        data.put(
+                "tag",
+                account.getTag()
+        );
 
-        data.put("language", preferences.getLanguage().getCode());
+        data.put(
+                "experience",
+                String.valueOf(
+                        account.getExperience()
+                )
+        );
 
-        data.put("privateMessages", String.valueOf(preferences.isPrivateMessages()));
+        data.put(
+                "type",
+                account.getType().name()
+        );
 
-        data.put("friendRequests", String.valueOf(preferences.isFriendRequests()));
+        data.put(
+                "createdAt",
+                account.getCreatedAt().toString()
+        );
 
-        data.put("serverJoinMessages", String.valueOf(preferences.isServerJoinMessages()));
+        data.put(
+                "lastLogin",
+                account.getLastLogin() == null
+                        ? ""
+                        : account.getLastLogin().toString()
+        );
 
-        redis.hset(key, data);
+        data.put(
+                "language",
+                preferences.getLanguage().getCode()
+        );
+
+        data.put(
+                "privateMessages",
+                String.valueOf(
+                        preferences.isPrivateMessages()
+                )
+        );
+
+        data.put(
+                "friendRequests",
+                String.valueOf(
+                        preferences.isFriendRequests()
+                )
+        );
+
+        data.put(
+                "serverJoinMessages",
+                String.valueOf(
+                        preferences.isServerJoinMessages()
+                )
+        );
+
+        redis.hset(
+                key,
+                data
+        );
+
+        /*
+         * Atualiza o índice nome -> UUID.
+         */
+        redis.set(
+                ACCOUNT_NAME_KEY_PREFIX
+                        + currentName,
+                account.getUniqueId().toString()
+        );
+
+        /*
+         * Remove do Redis grupos temporários que
+         * já não existem no Account.
+         */
+        Map<String, String> storedData =
+                redis.hgetAll(key);
+
+        for (String field :
+                storedData.keySet()) {
+
+            if (!field.startsWith(
+                    TEMPORARY_GROUP_PREFIX
+            )) {
+                continue;
+            }
+
+            String groupName =
+                    field.substring(
+                            TEMPORARY_GROUP_PREFIX.length()
+                    );
+
+            Group group;
+
+            try {
+
+                group =
+                        Group.valueOf(
+                                groupName
+                        );
+
+            } catch (IllegalArgumentException exception) {
+
+                redis.hdel(
+                        key,
+                        field
+                );
+
+                continue;
+            }
+
+            if (!account.getTemporaryGroups()
+                    .containsKey(group)) {
+
+                redis.hdel(
+                        key,
+                        field
+                );
+            }
+        }
+
+        /*
+         * Salva os grupos temporários atuais.
+         */
+        for (Map.Entry<Group, Instant> entry :
+                account.getTemporaryGroups()
+                        .entrySet()) {
+
+            Group group =
+                    entry.getKey();
+
+            Instant expiresAt =
+                    entry.getValue();
+
+            if (group == null
+                    || expiresAt == null) {
+                continue;
+            }
+
+            redis.hset(
+                    key,
+                    TEMPORARY_GROUP_PREFIX
+                            + group.name(),
+                    expiresAt.toString()
+            );
+        }
     }
 
-    public Account findById(UUID uniqueId) {
+    public Account findById(
+            UUID uniqueId
+    ) {
 
-        String key = "laboon:account:" + uniqueId;
+        if (uniqueId == null) {
+            return null;
+        }
 
-        Map<String, String> data = redis.hgetAll(key);
+        String key =
+                ACCOUNT_KEY_PREFIX
+                        + uniqueId;
+
+        Map<String, String> data =
+                redis.hgetAll(key);
 
         if (data.isEmpty()) {
             return null;
         }
 
-        Account account = new Account(uniqueId, data.getOrDefault("name", ""), AccountType.valueOf(data.getOrDefault("type", "ORIGINAL")), Instant.parse(data.getOrDefault("createdAt", Instant.now().toString())), parseInstant(data.get("lastLogin")), loadPreferences(data));
+        Account account =
+                new Account(
+                        uniqueId,
+                        data.getOrDefault(
+                                "name",
+                                ""
+                        ),
+                        parseAccountType(
+                                data.get("type")
+                        ),
+                        parseCreatedAt(
+                                data.get("createdAt")
+                        ),
+                        parseInstant(
+                                data.get("lastLogin")
+                        ),
+                        loadPreferences(data)
+                );
 
-        Group group = parseGroup(data.get("group"));
+        Group group =
+                parseGroup(
+                        data.get("group")
+                );
 
         account.setGroup(group);
 
-        /*
-         * Contas antigas podem não possuir
-         * o campo "tag".
-         *
-         * Nesse caso utilizamos a abreviação
-         * padrão do Group.
-         */
-        String tag = data.get("tag");
+        String tag =
+                data.get("tag");
 
-        if (tag == null || tag.isBlank()) {
-            tag = group.getAbbreviation();
+        if (tag == null
+                || tag.isBlank()) {
+
+            tag =
+                    group.getAbbreviation();
         }
 
         account.setTag(tag);
 
-        account.setExperience(Long.parseLong(data.getOrDefault("experience", "0")));
+        account.setExperience(
+                parseExperience(
+                        data.get("experience")
+                )
+        );
+
+        loadTemporaryGroups(
+                account,
+                data
+        );
 
         return account;
     }
 
-    public boolean exists(UUID uniqueId) {
+    /*
+     * =========================
+     * FIND BY NAME
+     * =========================
+     */
 
-        return redis.exists("laboon:account:" + uniqueId);
+    public Account findByName(
+            String name
+    ) {
+
+        if (name == null
+                || name.isBlank()) {
+            return null;
+        }
+
+        String normalizedName =
+                normalizeName(name);
+
+        String uuidValue =
+                redis.get(
+                        ACCOUNT_NAME_KEY_PREFIX
+                                + normalizedName
+                );
+
+        if (uuidValue == null
+                || uuidValue.isBlank()) {
+            return null;
+        }
+
+        try {
+
+            UUID uniqueId =
+                    UUID.fromString(uuidValue);
+
+            return findById(uniqueId);
+
+        } catch (IllegalArgumentException exception) {
+
+            /*
+             * Índice inválido. Remove para não
+             * deixar lixo permanente no Redis.
+             */
+            redis.del(
+                    ACCOUNT_NAME_KEY_PREFIX
+                            + normalizedName
+            );
+
+            return null;
+        }
     }
 
-    public void delete(UUID uniqueId) {
+    public boolean exists(
+            UUID uniqueId
+    ) {
 
-        redis.del("laboon:account:" + uniqueId);
+        if (uniqueId == null) {
+            return false;
+        }
+
+        return redis.exists(
+                ACCOUNT_KEY_PREFIX
+                        + uniqueId
+        );
     }
 
-    private Group parseGroup(String value) {
+    public void delete(
+            UUID uniqueId
+    ) {
 
+        if (uniqueId == null) {
+            return;
+        }
+
+        String key =
+                ACCOUNT_KEY_PREFIX
+                        + uniqueId;
+
+        String name =
+                redis.hget(
+                        key,
+                        "name"
+                );
+
+        /*
+         * Remove também o índice do nome.
+         */
+        if (name != null
+                && !name.isBlank()) {
+
+            redis.del(
+                    ACCOUNT_NAME_KEY_PREFIX
+                            + normalizeName(name)
+            );
+        }
+
+        redis.del(key);
+    }
+
+    /*
+     * =========================
+     * TEMPORARY GROUPS
+     * =========================
+     */
+
+    private void loadTemporaryGroups(
+            Account account,
+            Map<String, String> data
+    ) {
+
+        Instant now =
+                Instant.now();
+
+        for (Map.Entry<String, String> entry :
+                data.entrySet()) {
+
+            String field =
+                    entry.getKey();
+
+            if (!field.startsWith(
+                    TEMPORARY_GROUP_PREFIX
+            )) {
+                continue;
+            }
+
+            String groupName =
+                    field.substring(
+                            TEMPORARY_GROUP_PREFIX.length()
+                    );
+
+            Group group;
+
+            try {
+
+                group =
+                        Group.valueOf(
+                                groupName
+                        );
+
+            } catch (IllegalArgumentException exception) {
+
+                continue;
+            }
+
+            Instant expiresAt =
+                    parseInstant(
+                            entry.getValue()
+                    );
+
+            if (expiresAt == null) {
+                continue;
+            }
+
+            if (!expiresAt.isAfter(now)) {
+                continue;
+            }
+
+            account.setTemporaryGroup(
+                    group,
+                    expiresAt
+            );
+        }
+    }
+
+    /*
+     * =========================
+     * PARSING
+     * =========================
+     */
+
+    private Group parseGroup(
+            String value
+    ) {
         return Group.fromId(value);
     }
 
-    private AccountPreferences loadPreferences(Map<String, String> data) {
+    private AccountType parseAccountType(
+            String value
+    ) {
+
+        if (value == null
+                || value.isBlank()) {
+            return AccountType.ORIGINAL;
+        }
+
+        try {
+
+            return AccountType.valueOf(
+                    value
+            );
+
+        } catch (IllegalArgumentException exception) {
+
+            return AccountType.ORIGINAL;
+        }
+    }
+
+    private Instant parseCreatedAt(
+            String value
+    ) {
+
+        Instant result =
+                parseInstant(value);
+
+        if (result == null) {
+            return Instant.now();
+        }
+
+        return result;
+    }
+
+    private long parseExperience(
+            String value
+    ) {
+
+        if (value == null
+                || value.isBlank()) {
+            return 0L;
+        }
+
+        try {
+
+            return Long.parseLong(value);
+
+        } catch (NumberFormatException exception) {
+
+            return 0L;
+        }
+    }
+
+    private AccountPreferences loadPreferences(
+            Map<String, String> data
+    ) {
+
         LanguageLocale language;
 
         try {
 
-            language = LanguageLocale.fromCode(data.getOrDefault("language", LanguageLocale.ptBR().getCode()));
+            language =
+                    LanguageLocale.fromCode(
+                            data.getOrDefault(
+                                    "language",
+                                    LanguageLocale
+                                            .ptBR()
+                                            .getCode()
+                            )
+                    );
 
         } catch (Exception exception) {
 
-            language = LanguageLocale.ptBR();
+            language =
+                    LanguageLocale.ptBR();
         }
 
-        return new AccountPreferences(language, Boolean.parseBoolean(data.getOrDefault("privateMessages", "true")), Boolean.parseBoolean(data.getOrDefault("friendRequests", "true")), Boolean.parseBoolean(data.getOrDefault("serverJoinMessages", "true")));
+        return new AccountPreferences(
+                language,
+                Boolean.parseBoolean(
+                        data.getOrDefault(
+                                "privateMessages",
+                                "true"
+                        )
+                ),
+                Boolean.parseBoolean(
+                        data.getOrDefault(
+                                "friendRequests",
+                                "true"
+                        )
+                ),
+                Boolean.parseBoolean(
+                        data.getOrDefault(
+                                "serverJoinMessages",
+                                "true"
+                        )
+                )
+        );
     }
 
-    private Instant parseInstant(String value) {
+    private Instant parseInstant(
+            String value
+    ) {
 
-        if (value == null || value.isBlank()) {
+        if (value == null
+                || value.isBlank()) {
             return null;
         }
 
@@ -132,5 +586,13 @@ public final class AccountRepository {
 
             return null;
         }
+    }
+
+    private String normalizeName(
+            String name
+    ) {
+
+        return name.trim()
+                .toLowerCase();
     }
 }

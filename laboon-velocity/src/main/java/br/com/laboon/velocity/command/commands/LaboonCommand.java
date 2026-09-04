@@ -1,4 +1,4 @@
-package br.com.laboon.velocity.command;
+package br.com.laboon.velocity.command.commands;
 
 import com.velocitypowered.api.command.SimpleCommand;
 import net.kyori.adventure.text.Component;

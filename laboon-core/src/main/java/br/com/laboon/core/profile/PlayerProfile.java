@@ -3,6 +3,7 @@ package br.com.laboon.core.profile;
 import br.com.laboon.core.account.Account;
 import br.com.laboon.core.account.group.Group;
 
+import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -51,7 +52,32 @@ public final class PlayerProfile {
      */
 
     public Group getGroup() {
-        return account.getGroup();
+
+        Group effectiveGroup = account.getGroup();
+
+        Instant now = Instant.now();
+
+        for (Map.Entry<Group, Instant> entry : account.getTemporaryGroups().entrySet()) {
+
+            Group temporaryGroup = entry.getKey();
+
+            Instant expiresAt = entry.getValue();
+
+            if (temporaryGroup == null || expiresAt == null) {
+                continue;
+            }
+
+            if (!expiresAt.isAfter(now)) {
+                continue;
+            }
+
+            if (temporaryGroup.getPower() > effectiveGroup.getPower()) {
+
+                effectiveGroup = temporaryGroup;
+            }
+        }
+
+        return effectiveGroup;
     }
 
     public void setGroup(Group group) {
@@ -59,7 +85,7 @@ public final class PlayerProfile {
     }
 
     public boolean hasGroupPermission(Group requiredGroup) {
-        return account.getGroup().hasPermission(requiredGroup);
+        return getGroup().hasPermission(requiredGroup);
     }
 
     /*
@@ -91,6 +117,7 @@ public final class PlayerProfile {
     }
 
     public void addExperience(long amount) {
+
         if (amount <= 0) {
             return;
         }
@@ -143,7 +170,9 @@ public final class PlayerProfile {
     }
 
     public void saveAllStatistics() {
+
         for (Statistics value : statistics.values()) {
+
             statisticsRepository.save(getUniqueId(), value);
         }
     }
@@ -155,6 +184,7 @@ public final class PlayerProfile {
      */
 
     public long getCoins(String game) {
+
         String normalizedGame = normalize(game);
 
         return gameCoins.computeIfAbsent(normalizedGame, key -> gameCoinsRepository.find(getUniqueId(), normalizedGame));
@@ -192,6 +222,7 @@ public final class PlayerProfile {
     }
 
     public void saveCoins(String game) {
+
         String normalizedGame = normalize(game);
 
         Long coins = gameCoins.get(normalizedGame);
@@ -204,6 +235,7 @@ public final class PlayerProfile {
     }
 
     public void saveAllCoins() {
+
         for (Map.Entry<String, Long> entry : gameCoins.entrySet()) {
 
             gameCoinsRepository.save(getUniqueId(), entry.getKey(), entry.getValue());
@@ -236,6 +268,7 @@ public final class PlayerProfile {
     }
 
     private String normalize(String value) {
+
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException("O valor não pode ser vazio.");
         }
@@ -244,6 +277,7 @@ public final class PlayerProfile {
     }
 
     private String normalizeNullable(String value) {
+
         if (value == null || value.isBlank()) {
             return null;
         }

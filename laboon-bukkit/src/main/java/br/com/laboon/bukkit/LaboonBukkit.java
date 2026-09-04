@@ -8,13 +8,14 @@ import br.com.laboon.bukkit.config.RedisConfig;
 import br.com.laboon.bukkit.config.RedisConfigLoader;
 import br.com.laboon.bukkit.config.ServerConfig;
 import br.com.laboon.bukkit.config.ServerConfigLoader;
+import br.com.laboon.bukkit.group.GroupUpdateListener;
 import br.com.laboon.bukkit.gui.GuiManager;
 import br.com.laboon.bukkit.profile.BukkitProfileProvider;
 import br.com.laboon.bukkit.profile.ProfileListener;
 import br.com.laboon.bukkit.profile.ProfileProvider;
 import br.com.laboon.bukkit.server.ServerHeartbeat;
-import br.com.laboon.bukkit.tab.BukkitTabManager;
-import br.com.laboon.bukkit.tab.TabListener;
+import br.com.laboon.bukkit.display.DisplayManager;
+import br.com.laboon.bukkit.display.DisplayListener;
 
 import br.com.laboon.core.account.AccountRepository;
 import br.com.laboon.core.command.CommandClass;
@@ -56,14 +57,16 @@ public final class LaboonBukkit extends JavaPlugin {
 
     private ServerConfig serverConfig;
 
-    private BukkitTabManager tabManager;
-    private TabListener tabListener;
+    private DisplayManager displayManager;
+    private DisplayListener tabListener;
 
     private ChatFormatter chatFormatter;
 
     private LanguageService languageService;
 
     private BukkitCommandFramework commandFramework;
+
+    private GroupUpdateListener groupUpdateListener;
 
     @Override
     public void onEnable() {
@@ -133,7 +136,7 @@ public final class LaboonBukkit extends JavaPlugin {
 
         profileProvider = new BukkitProfileProvider(accountRepository, statisticsRepository, gameCoinsRepository);
 
-        tabManager = new BukkitTabManager(profileProvider, serverConfig);
+        displayManager = new DisplayManager(profileProvider, serverConfig);
 
         getLogger().info("Redis conectado com sucesso!");
     }
@@ -163,7 +166,7 @@ public final class LaboonBukkit extends JavaPlugin {
 
         getServer().getPluginManager().registerEvents(new ProfileListener(profileProvider), this);
 
-        tabListener = new TabListener(this, tabManager);
+        tabListener = new DisplayListener(this, displayManager);
 
         getServer().getPluginManager().registerEvents(tabListener, this);
 
@@ -194,6 +197,10 @@ public final class LaboonBukkit extends JavaPlugin {
         RedisSubscriber subscriber = new RedisSubscriber(redisManager);
 
         messageBus = new MessageBus(publisher, subscriber);
+
+        groupUpdateListener = new GroupUpdateListener(this, profileProvider, displayManager, messageBus);
+
+        groupUpdateListener.register();
     }
 
     private void startHeartbeat() {
@@ -222,6 +229,10 @@ public final class LaboonBukkit extends JavaPlugin {
 
         if (redisManager != null) {
             redisManager.close();
+        }
+
+        if (displayManager != null) {
+            displayManager.shutdown();
         }
 
         getLogger().info("Laboon Bukkit encerrado.");
