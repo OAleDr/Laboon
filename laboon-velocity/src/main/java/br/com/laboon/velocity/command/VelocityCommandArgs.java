@@ -36,4 +36,8 @@ public final class VelocityCommandArgs extends CommandArgs {
     public boolean isPlayer() {
         return sender.isPlayer();
     }
+
+    public void sendMessage(String s) {
+        sender.sendMessage(s);
+    }
 }
