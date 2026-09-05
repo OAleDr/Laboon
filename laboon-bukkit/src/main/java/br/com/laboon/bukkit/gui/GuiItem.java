@@ -4,6 +4,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 
 import org.bukkit.Material;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
@@ -32,7 +33,6 @@ public final class GuiItem {
     private GuiItem(Material material) {
 
         if (material == null) {
-
             throw new IllegalArgumentException("O material não pode ser nulo.");
         }
 
@@ -47,7 +47,6 @@ public final class GuiItem {
     public GuiItem amount(int amount) {
 
         if (amount < 1) {
-
             throw new IllegalArgumentException("A quantidade deve ser maior que zero.");
         }
 
@@ -57,6 +56,11 @@ public final class GuiItem {
     }
 
     public GuiItem name(String name) {
+
+        if (name == null) {
+            this.name = null;
+            return this;
+        }
 
         this.name = MiniMessage.miniMessage().deserialize(name);
 
@@ -70,11 +74,23 @@ public final class GuiItem {
         return this;
     }
 
+    /**
+     * Adiciona linhas ao lore existente.
+     */
     public GuiItem lore(String... lines) {
 
+        if (lines == null) {
+            return this;
+        }
+
         MiniMessage miniMessage = MiniMessage.miniMessage();
 
         for (String line : lines) {
+
+            if (line == null) {
+                lore.add(Component.empty());
+                continue;
+            }
 
             lore.add(miniMessage.deserialize(line));
         }
@@ -82,11 +98,23 @@ public final class GuiItem {
         return this;
     }
 
+    /**
+     * Adiciona linhas ao lore existente.
+     */
     public GuiItem lore(List<String> lines) {
 
+        if (lines == null) {
+            return this;
+        }
+
         MiniMessage miniMessage = MiniMessage.miniMessage();
 
         for (String line : lines) {
+
+            if (line == null) {
+                lore.add(Component.empty());
+                continue;
+            }
 
             lore.add(miniMessage.deserialize(line));
         }
@@ -94,11 +122,26 @@ public final class GuiItem {
         return this;
     }
 
+    /**
+     * Substitui completamente o lore atual.
+     */
     public GuiItem loreComponents(List<Component> lines) {
 
         lore.clear();
 
-        lore.addAll(lines);
+        if (lines != null) {
+            lore.addAll(lines);
+        }
+
+        return this;
+    }
+
+    /**
+     * Remove todas as linhas do lore.
+     */
+    public GuiItem clearLore() {
+
+        lore.clear();
 
         return this;
     }
@@ -112,13 +155,35 @@ public final class GuiItem {
 
     public GuiItem playerHead(Player player) {
 
+        if (player == null) {
+            throw new IllegalArgumentException("O jogador não pode ser nulo.");
+        }
+
+        return playerHead((OfflinePlayer) player);
+    }
+
+    /**
+     * Cria uma cabeça usando um OfflinePlayer.
+     * <p>
+     * Isso permite mostrar a cabeça de amigos
+     * que estão offline.
+     */
+    public GuiItem playerHead(OfflinePlayer player) {
+
+        if (player == null) {
+            throw new IllegalArgumentException("O jogador não pode ser nulo.");
+        }
+
         ItemStack item = new ItemStack(Material.PLAYER_HEAD);
 
-        SkullMeta meta = (SkullMeta) item.getItemMeta();
+        ItemMeta itemMeta = item.getItemMeta();
 
-        meta.setOwningPlayer(player);
+        if (itemMeta instanceof SkullMeta meta) {
 
-        item.setItemMeta(meta);
+            meta.setOwningPlayer(player);
+
+            item.setItemMeta(meta);
+        }
 
         return itemStack(item);
     }
@@ -126,7 +191,6 @@ public final class GuiItem {
     public GuiItem itemStack(ItemStack item) {
 
         if (item == null) {
-
             throw new IllegalArgumentException("O ItemStack não pode ser nulo.");
         }
 
@@ -150,7 +214,6 @@ public final class GuiItem {
         return clickAction;
     }
 
-
     public ItemStack build() {
 
         ItemStack item = baseItem != null ? baseItem.clone() : new ItemStack(material, amount);
@@ -162,17 +225,14 @@ public final class GuiItem {
         }
 
         if (name != null) {
-
             meta.displayName(name);
         }
 
         if (!lore.isEmpty()) {
-
             meta.lore(List.copyOf(lore));
         }
 
         if (hideAttributes) {
-
             meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         }
 

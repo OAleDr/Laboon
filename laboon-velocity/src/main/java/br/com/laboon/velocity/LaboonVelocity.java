@@ -651,8 +651,7 @@ public final class LaboonVelocity {
 
         friendManager =
                 new FriendManager(
-                        redisManager,
-                        accountManager
+                        redisManager
                 );
 
         logger.info(

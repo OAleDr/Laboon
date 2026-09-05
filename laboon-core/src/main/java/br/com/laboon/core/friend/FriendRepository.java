@@ -16,6 +16,8 @@ public final class FriendRepository {
 
     private static final String FRIENDS_PREFIX = "laboon:friends:";
 
+    private static final String FRIENDS_ADDED_PREFIX = "laboon:friends:added:";
+
     private static final String REQUEST_PREFIX = "laboon:friend:requests:";
 
     private final RedisManager redisManager;
@@ -47,9 +49,41 @@ public final class FriendRepository {
 
         JedisPooled jedis = redisManager.getJedis();
 
-        jedis.sadd(FRIENDS_PREFIX + first, second.toString());
+        String firstKey = FRIENDS_PREFIX + first;
 
-        jedis.sadd(FRIENDS_PREFIX + second, first.toString());
+        String secondKey = FRIENDS_PREFIX + second;
+
+        String firstAddedKey = FRIENDS_ADDED_PREFIX + first;
+
+        String secondAddedKey = FRIENDS_ADDED_PREFIX + second;
+
+        Instant now = Instant.now();
+
+        /*
+         * Adiciona os amigos ao SET.
+         */
+
+        jedis.sadd(firstKey, second.toString());
+
+        jedis.sadd(secondKey, first.toString());
+
+        /*
+         * Guarda a data somente se ainda
+         * não existir.
+         *
+         * Isso evita alterar a data original
+         * caso addFriend seja chamado novamente.
+         */
+
+        if (!jedis.hexists(firstAddedKey, second.toString())) {
+
+            jedis.hset(firstAddedKey, second.toString(), now.toString());
+        }
+
+        if (!jedis.hexists(secondAddedKey, first.toString())) {
+
+            jedis.hset(secondAddedKey, first.toString(), now.toString());
+        }
     }
 
     public void removeFriend(UUID first, UUID second) {
@@ -63,6 +97,14 @@ public final class FriendRepository {
         jedis.srem(FRIENDS_PREFIX + first, second.toString());
 
         jedis.srem(FRIENDS_PREFIX + second, first.toString());
+
+        /*
+         * Remove também a data de amizade.
+         */
+
+        jedis.hdel(FRIENDS_ADDED_PREFIX + first, second.toString());
+
+        jedis.hdel(FRIENDS_ADDED_PREFIX + second, first.toString());
     }
 
     public boolean isFriend(UUID first, UUID second) {
@@ -100,6 +142,124 @@ public final class FriendRepository {
         }
 
         return friends;
+    }
+
+    /**
+     * Retorna os amigos com a data de adição.
+     * <p>
+     * Para amizades antigas, criadas antes da
+     * implementação da persistência da data,
+     * a data será registrada no momento da
+     * primeira leitura.
+     */
+    public List<Friend> getFriendDetails(UUID uniqueId) {
+
+        List<Friend> friends = new ArrayList<>();
+
+        if (uniqueId == null) {
+            return friends;
+        }
+
+        JedisPooled jedis = redisManager.getJedis();
+
+        String friendsKey = FRIENDS_PREFIX + uniqueId;
+
+        String addedKey = FRIENDS_ADDED_PREFIX + uniqueId;
+
+        Set<String> values = jedis.smembers(friendsKey);
+
+        for (String value : values) {
+
+            try {
+
+                UUID friendId = UUID.fromString(value);
+
+                String addedAtValue = jedis.hget(addedKey, friendId.toString());
+
+                Instant addedAt;
+
+                if (addedAtValue == null || addedAtValue.isBlank()) {
+
+                    /*
+                     * Amizade antiga sem data.
+                     *
+                     * Não temos como recuperar a data
+                     * verdadeira, então registramos agora
+                     * para que daqui em diante ela fique
+                     * persistida.
+                     */
+
+                    addedAt = Instant.now();
+
+                    jedis.hset(addedKey, friendId.toString(), addedAt.toString());
+
+                } else {
+
+                    try {
+
+                        addedAt = Instant.parse(addedAtValue);
+
+                    } catch (Exception exception) {
+
+                        addedAt = Instant.now();
+
+                        jedis.hset(addedKey, friendId.toString(), addedAt.toString());
+                    }
+                }
+
+                friends.add(new Friend(friendId, addedAt));
+
+            } catch (IllegalArgumentException ignored) {
+                // UUID inválido no Redis.
+            }
+        }
+
+        return friends;
+    }
+
+    /**
+     * Retorna um amigo específico com sua
+     * data de adição.
+     */
+    public Friend getFriend(UUID owner, UUID friendId) {
+
+        if (owner == null || friendId == null) {
+            return null;
+        }
+
+        if (!isFriend(owner, friendId)) {
+            return null;
+        }
+
+        JedisPooled jedis = redisManager.getJedis();
+
+        String key = FRIENDS_ADDED_PREFIX + owner;
+
+        String value = jedis.hget(key, friendId.toString());
+
+        Instant addedAt;
+
+        if (value == null || value.isBlank()) {
+
+            addedAt = Instant.now();
+
+            jedis.hset(key, friendId.toString(), addedAt.toString());
+
+        } else {
+
+            try {
+
+                addedAt = Instant.parse(value);
+
+            } catch (Exception exception) {
+
+                addedAt = Instant.now();
+
+                jedis.hset(key, friendId.toString(), addedAt.toString());
+            }
+        }
+
+        return new Friend(friendId, addedAt);
     }
 
     /*

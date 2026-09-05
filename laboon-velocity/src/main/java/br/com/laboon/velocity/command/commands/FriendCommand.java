@@ -82,7 +82,7 @@ public final class FriendCommand implements CommandClass {
         };
     }
 
-    @Command(name = "amigo", aliases = {"amigos", "friend", "friends"}, description = "Gerencia sua lista de amigos.", usage = "/amigo <jogador|aceitar|cancelar|negar|remover|lista|pedidos|status>", subcommands = {"aceitar", "cancelar", "negar", "remover", "lista", "pedidos", "status"})
+    @Command(name = "amigo", aliases = {"friend"}, description = "Gerencia sua lista de amigos.", usage = "/amigo <jogador|aceitar|cancelar|negar|remover|lista|pedidos|status>", subcommands = {"aceitar", "cancelar", "negar", "remover", "lista", "pedidos", "status"})
     public void execute(VelocityCommandArgs args) {
 
         if (!args.isPlayer()) {

@@ -1,7 +1,5 @@
 package br.com.laboon.core.friend;
 
-import br.com.laboon.core.account.Account;
-import br.com.laboon.core.account.AccountManager;
 import br.com.laboon.core.redis.RedisManager;
 
 import java.time.Instant;
@@ -12,20 +10,14 @@ import java.util.UUID;
 public final class FriendManager {
 
     private final FriendRepository repository;
-    private final AccountManager accountManager;
 
-    public FriendManager(RedisManager redisManager, AccountManager accountManager) {
+    public FriendManager(RedisManager redisManager) {
 
         if (redisManager == null) {
             throw new IllegalArgumentException("RedisManager não pode ser nulo.");
         }
-        if (accountManager == null) {
-            throw new IllegalArgumentException("AccountManager não pode ser nulo.");
-        }
 
         this.repository = new FriendRepository(redisManager);
-
-        this.accountManager = accountManager;
     }
 
     /*
@@ -35,162 +27,166 @@ public final class FriendManager {
      */
 
     public Set<UUID> getFriends(UUID uniqueId) {
+
+        if (uniqueId == null) {
+            return Set.of();
+        }
+
         return repository.getFriends(uniqueId);
     }
 
+    public List<Friend> getFriendDetails(UUID uniqueId) {
+
+        if (uniqueId == null) {
+            return List.of();
+        }
+
+        return repository.getFriendDetails(uniqueId);
+    }
+
+    public Friend getFriend(UUID owner, UUID friendId) {
+
+        if (owner == null || friendId == null) {
+            return null;
+        }
+
+        return repository.getFriend(owner, friendId);
+    }
+
     public boolean isFriend(UUID first, UUID second) {
+
         return repository.isFriend(first, second);
+    }
+
+    public void addFriend(UUID first, UUID second) {
+
+        if (first == null || second == null) {
+            return;
+        }
+
+        if (first.equals(second)) {
+            return;
+        }
+
+        repository.addFriend(first, second);
+    }
+
+    public void removeFriend(UUID first, UUID second) {
+
+        if (first == null || second == null) {
+            return;
+        }
+
+        repository.removeFriend(first, second);
     }
 
     /*
      * =========================
-     * SOLICITAR
+     * SOLICITAÇÕES
      * =========================
      */
 
-    public void sendRequest(UUID sender, UUID receiver) {
+    public boolean sendRequest(UUID sender, UUID receiver) {
 
-        validatePlayers(sender, receiver);
+        if (sender == null || receiver == null) {
+            return false;
+        }
 
         if (sender.equals(receiver)) {
-            throw new IllegalStateException("Você não pode adicionar a si mesmo.");
+            return false;
         }
 
         if (isFriend(sender, receiver)) {
-            throw new IllegalStateException("Vocês já são amigos.");
+            return false;
         }
 
         if (repository.hasRequest(receiver, sender)) {
-
-            throw new IllegalStateException("Você já enviou uma solicitação para esse jogador.");
+            return false;
         }
 
         if (repository.hasRequest(sender, receiver)) {
-
-            throw new IllegalStateException("Esse jogador já enviou uma solicitação para você.");
-        }
-
-        Account account = accountManager.get(receiver);
-
-        if (account == null) {
-            throw new IllegalStateException("Conta do jogador não encontrada.");
-        }
-
-        if (!account.getPreferences().isFriendRequests()) {
-
-            throw new IllegalStateException("Esse jogador não aceita solicitações de amizade.");
+            return false;
         }
 
         FriendRequest request = new FriendRequest(sender, receiver, Instant.now());
 
         repository.saveRequest(request);
+
+        return true;
     }
 
-    /*
-     * =========================
-     * ACEITAR
-     * =========================
-     */
+    public boolean hasRequest(UUID receiver, UUID sender) {
 
-    public void acceptRequest(UUID receiver, UUID sender) {
+        return repository.hasRequest(receiver, sender);
+    }
+
+    public List<FriendRequest> getRequests(UUID receiver) {
+
+        return repository.getRequests(receiver);
+    }
+
+    public List<FriendRequest> getOutgoingRequests(UUID sender) {
+
+        return repository.getOutgoingRequests(sender);
+    }
+
+    public boolean acceptRequest(UUID receiver, UUID sender) {
+
+        if (receiver == null || sender == null) {
+            return false;
+        }
 
         FriendRequest request = repository.getRequest(receiver, sender);
 
         if (request == null) {
-            throw new IllegalStateException("Solicitação de amizade não encontrada.");
+            return false;
         }
 
         if (isFriend(receiver, sender)) {
 
             repository.removeRequest(receiver, sender);
 
-            return;
+            return false;
         }
 
         repository.addFriend(receiver, sender);
 
         repository.removeRequest(receiver, sender);
+
+        return true;
     }
 
-    /*
-     * =========================
-     * NEGAR
-     * =========================
-     */
+    public boolean denyRequest(UUID receiver, UUID sender) {
 
-    public void denyRequest(UUID receiver, UUID sender) {
+        if (receiver == null || sender == null) {
+            return false;
+        }
 
         if (!repository.hasRequest(receiver, sender)) {
-
-            throw new IllegalStateException("Solicitação de amizade não encontrada.");
+            return false;
         }
 
         repository.removeRequest(receiver, sender);
+
+        return true;
     }
 
-    /*
-     * =========================
-     * CANCELAR
-     * =========================
-     */
+    public boolean cancelRequest(UUID sender, UUID receiver) {
 
-    public void cancelRequest(UUID sender, UUID receiver) {
+        if (sender == null || receiver == null) {
+            return false;
+        }
 
         if (!repository.hasRequest(receiver, sender)) {
-
-            throw new IllegalStateException("Solicitação de amizade não encontrada.");
+            return false;
         }
 
         repository.removeRequest(receiver, sender);
+
+        return true;
     }
-
-    /*
-     * =========================
-     * REMOVER
-     * =========================
-     */
-
-    public void removeFriend(UUID remover, UUID target) {
-
-        if (!isFriend(remover, target)) {
-
-            throw new IllegalStateException("Esse jogador não está na sua lista de amigos.");
-        }
-
-        repository.removeFriend(remover, target);
-    }
-
-    /*
-     * =========================
-     * PEDIDOS
-     * =========================
-     */
-
-    public List<FriendRequest> getRequests(UUID uniqueId) {
-
-        return repository.getRequests(uniqueId);
-    }
-
-    public List<FriendRequest> getOutgoingRequests(UUID uniqueId) {
-
-        return repository.getOutgoingRequests(uniqueId);
-    }
-
-    /*
-     * =========================
-     * REPOSITORY
-     * =========================
-     */
 
     public FriendRepository getRepository() {
         return repository;
-    }
-
-    private void validatePlayers(UUID first, UUID second) {
-
-        if (first == null || second == null) {
-
-            throw new IllegalArgumentException("UUID não pode ser nulo.");
-        }
     }
 }

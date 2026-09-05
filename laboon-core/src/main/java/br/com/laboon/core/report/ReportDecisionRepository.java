@@ -3,6 +3,7 @@ package br.com.laboon.core.report;
 import br.com.laboon.core.redis.RedisManager;
 
 import redis.clients.jedis.Jedis;
+import redis.clients.jedis.JedisPooled;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -42,7 +43,7 @@ public final class ReportDecisionRepository {
             return;
         }
 
-        Jedis jedis = redisManager.getJedis();
+        JedisPooled jedis = redisManager.getJedis();
 
         String key = DECISION_PREFIX + decision.getId();
 
@@ -79,7 +80,7 @@ public final class ReportDecisionRepository {
             return null;
         }
 
-        Jedis jedis = redisManager.getJedis();
+        JedisPooled jedis = redisManager.getJedis();
 
         Map<String, String> fields = jedis.hgetAll(DECISION_PREFIX + id);
 
@@ -102,7 +103,7 @@ public final class ReportDecisionRepository {
             return List.of();
         }
 
-        Jedis jedis = redisManager.getJedis();
+        JedisPooled jedis = redisManager.getJedis();
 
         Set<String> ids = jedis.smembers(DECISIONS_PREFIX + reportId);
 
@@ -136,7 +137,7 @@ public final class ReportDecisionRepository {
 
         ReportDecision decision = findById(id);
 
-        Jedis jedis = redisManager.getJedis();
+        JedisPooled jedis = redisManager.getJedis();
 
         jedis.del(DECISION_PREFIX + id);
 
@@ -158,7 +159,7 @@ public final class ReportDecisionRepository {
             return;
         }
 
-        Jedis jedis = redisManager.getJedis();
+        JedisPooled jedis = redisManager.getJedis();
 
         String indexKey = DECISIONS_PREFIX + reportId;
 
