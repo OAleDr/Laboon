@@ -1,6 +1,9 @@
 package br.com.laboon.core.account;
 
 import br.com.laboon.core.account.group.Group;
+import br.com.laboon.core.account.punishment.Ban;
+import br.com.laboon.core.account.punishment.Mute;
+import br.com.laboon.core.account.punishment.PunishmentHistory;
 
 import java.time.Instant;
 import java.util.Collections;
@@ -29,6 +32,8 @@ public final class Account {
     private AccountPreferences preferences;
 
     private final Map<Group, Instant> temporaryGroups;
+
+    private PunishmentHistory punishmentHistory = new PunishmentHistory();
 
     public Account(UUID uniqueId, String name) {
         this(uniqueId, name, AccountType.ORIGINAL, Instant.now(), null, new AccountPreferences());
@@ -191,5 +196,39 @@ public final class Account {
 
     public void setPreferences(AccountPreferences preferences) {
         this.preferences = preferences;
+    }
+
+    /*
+     * =======================
+     *  PUNISHMENT
+     * =======================
+     */
+    public PunishmentHistory getPunishmentHistory() {
+        if (punishmentHistory == null) {
+            punishmentHistory = new PunishmentHistory();
+        }
+
+        return punishmentHistory;
+    }
+
+    public void setPunishmentHistory(PunishmentHistory punishmentHistory) {
+
+        this.punishmentHistory = punishmentHistory == null ? new PunishmentHistory() : punishmentHistory;
+    }
+
+    public Ban getCurrentBan() {
+        return getPunishmentHistory().getCurrentBan();
+    }
+
+    public Mute getCurrentMute() {
+        return getPunishmentHistory().getCurrentMute();
+    }
+
+    public boolean isBanned() {
+        return getPunishmentHistory().isBanned();
+    }
+
+    public boolean isMuted() {
+        return getPunishmentHistory().isMuted();
     }
 }

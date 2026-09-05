@@ -59,7 +59,7 @@ public final class ReportCommand implements CommandClass {
 
             if (args.size() == 1) {
 
-                String input = args.getArgument(0).toLowerCase();
+                String input = args.get(0).toLowerCase();
 
                 List<String> players = new ArrayList<>();
 
@@ -101,7 +101,9 @@ public final class ReportCommand implements CommandClass {
             return;
         }
 
-        Player target = proxyServer.getPlayer(args.getArgument(0)).orElse(null);
+        String targetName = args.get(0);
+
+        Player target = proxyServer.getPlayer(targetName).orElse(null);
 
         if (target == null) {
 
@@ -126,6 +128,9 @@ public final class ReportCommand implements CommandClass {
             return;
         }
 
+        /*
+         * Impede reports contra membros da equipe.
+         */
         if (targetAccount.getGroup().hasPermission(Group.TRIAL)) {
 
             args.sendMessage("§cVocê não pode reportar um membro da equipe.");
@@ -137,14 +142,14 @@ public final class ReportCommand implements CommandClass {
 
         for (int i = 1; i < args.size(); i++) {
 
-            if (!reason.isEmpty()) {
+            if (reason.length() > 0) {
                 reason.append(" ");
             }
 
-            reason.append(args.getArgument(i));
+            reason.append(args.get(i));
         }
 
-        if (reason.isEmpty()) {
+        if (reason.length() == 0) {
 
             args.sendMessage("§cInforme o motivo do report.");
 

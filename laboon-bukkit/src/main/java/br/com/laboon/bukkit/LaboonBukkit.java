@@ -15,6 +15,7 @@ import br.com.laboon.bukkit.gui.AnvilGuiManager;
 import br.com.laboon.bukkit.gui.GuiManager;
 import br.com.laboon.bukkit.gui.friend.FriendGui;
 import br.com.laboon.bukkit.gui.reports.ReportListGui;
+import br.com.laboon.bukkit.listener.PunishmentChatListener;
 import br.com.laboon.bukkit.profile.BukkitProfileProvider;
 import br.com.laboon.bukkit.profile.ProfileListener;
 import br.com.laboon.bukkit.profile.ProfileProvider;
@@ -81,6 +82,8 @@ public final class LaboonBukkit extends JavaPlugin {
     private FriendManager friendManager;
     private FriendGui friendGui;
 
+    private ProfileListener profileListener;
+
     @Override
     public void onEnable() {
 
@@ -112,6 +115,10 @@ public final class LaboonBukkit extends JavaPlugin {
 
         if (tabListener != null) {
             tabListener.start();
+        }
+
+        if (profileListener != null) {
+            profileListener.start();
         }
 
         getLogger().info("Laboon Bukkit iniciado!");
@@ -191,7 +198,9 @@ public final class LaboonBukkit extends JavaPlugin {
 
         getServer().getPluginManager().registerEvents(anvilGuiManager, this);
 
-        getServer().getPluginManager().registerEvents(new ProfileListener(profileProvider), this);
+        profileListener = new ProfileListener(this, profileProvider, accountManager);
+
+        getServer().getPluginManager().registerEvents(profileListener, this);
 
         tabListener = new DisplayListener(this, displayManager);
 
@@ -200,6 +209,10 @@ public final class LaboonBukkit extends JavaPlugin {
         chatFormatter = new ChatFormatter(profileProvider);
 
         getServer().getPluginManager().registerEvents(new ChatListener(this, chatFormatter), this);
+
+        PunishmentChatListener punishmentChatListener = new PunishmentChatListener(profileProvider);
+
+        getServer().getPluginManager().registerEvents(punishmentChatListener, this);
 
         getLogger().info("Listeners registrados.");
     }
@@ -260,6 +273,10 @@ public final class LaboonBukkit extends JavaPlugin {
 
         if (displayManager != null) {
             displayManager.shutdown();
+        }
+
+        if (profileListener != null) {
+            profileListener.stop();
         }
 
         getLogger().info("Laboon Bukkit encerrado.");

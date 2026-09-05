@@ -2,6 +2,7 @@ package br.com.laboon.velocity.command;
 
 import br.com.laboon.core.command.CommandArgs;
 import com.velocitypowered.api.command.CommandSource;
+import com.velocitypowered.api.proxy.Player;
 
 public final class VelocityCommandArgs extends CommandArgs {
 
@@ -40,4 +41,9 @@ public final class VelocityCommandArgs extends CommandArgs {
     public void sendMessage(String s) {
         sender.sendMessage(s);
     }
+
+    public Player getPlayer() {
+        return sender.getPlayer().orElse(null);
+    }
+
 }
