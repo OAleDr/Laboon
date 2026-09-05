@@ -9,7 +9,9 @@ import br.com.laboon.bukkit.config.RedisConfigLoader;
 import br.com.laboon.bukkit.config.ServerConfig;
 import br.com.laboon.bukkit.config.ServerConfigLoader;
 import br.com.laboon.bukkit.group.GroupUpdateListener;
+import br.com.laboon.bukkit.gui.AnvilGuiManager;
 import br.com.laboon.bukkit.gui.GuiManager;
+import br.com.laboon.bukkit.gui.reports.ReportListGui;
 import br.com.laboon.bukkit.profile.BukkitProfileProvider;
 import br.com.laboon.bukkit.profile.ProfileListener;
 import br.com.laboon.bukkit.profile.ProfileProvider;
@@ -33,6 +35,7 @@ import br.com.laboon.core.profile.GameCoinsRepository;
 import br.com.laboon.core.profile.StatisticsRepository;
 import br.com.laboon.core.redis.RedisManager;
 
+import br.com.laboon.core.report.ReportManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.nio.file.Files;
@@ -48,6 +51,8 @@ public final class LaboonBukkit extends JavaPlugin {
     private ServerHeartbeat heartbeat;
 
     private GuiManager guiManager;
+
+    private AnvilGuiManager anvilGuiManager;
 
     private AccountRepository accountRepository;
     private StatisticsRepository statisticsRepository;
@@ -67,6 +72,9 @@ public final class LaboonBukkit extends JavaPlugin {
     private BukkitCommandFramework commandFramework;
 
     private GroupUpdateListener groupUpdateListener;
+
+    private ReportManager reportManager;
+    private ReportListGui reportListGui;
 
     @Override
     public void onEnable() {
@@ -134,6 +142,8 @@ public final class LaboonBukkit extends JavaPlugin {
 
         gameCoinsRepository = new GameCoinsRepository(redisManager);
 
+        reportManager = new ReportManager(redisManager);
+
         profileProvider = new BukkitProfileProvider(accountRepository, statisticsRepository, gameCoinsRepository);
 
         displayManager = new DisplayManager(profileProvider, serverConfig);
@@ -161,8 +171,19 @@ public final class LaboonBukkit extends JavaPlugin {
     private void registerListeners() {
 
         guiManager = new GuiManager();
+        anvilGuiManager =
+                new AnvilGuiManager(this);
 
         getServer().getPluginManager().registerEvents(guiManager, this);
+
+        reportListGui = new ReportListGui(guiManager, reportManager, anvilGuiManager);
+
+        getServer()
+                .getPluginManager()
+                .registerEvents(
+                        anvilGuiManager,
+                        this
+                );
 
         getServer().getPluginManager().registerEvents(new ProfileListener(profileProvider), this);
 
@@ -181,7 +202,7 @@ public final class LaboonBukkit extends JavaPlugin {
 
         commandFramework = new BukkitCommandFramework(this, profileProvider);
 
-        CommandProvider commandProvider = new BukkitCommandProvider(guiManager, profileProvider, languageService);
+        CommandProvider commandProvider = new BukkitCommandProvider(guiManager, anvilGuiManager, profileProvider, languageService, reportListGui);
 
         List<Class<? extends CommandClass>> commands = CommandScanner.scan("br.com.laboon.bukkit.command.commands");
 

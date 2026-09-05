@@ -15,7 +15,10 @@ import br.com.laboon.core.profile.PlayerProfile;
 import br.com.laboon.core.profile.ProfileManager;
 import br.com.laboon.core.profile.StatisticsRepository;
 import br.com.laboon.core.redis.RedisManager;
+import br.com.laboon.core.report.ReportExpirationService;
+import br.com.laboon.core.report.ReportManager;
 import br.com.laboon.core.server.ServerRegistry;
+
 import br.com.laboon.velocity.account.VelocityAccountService;
 import br.com.laboon.velocity.command.VelocityCommandFramework;
 import br.com.laboon.velocity.command.VelocityCommandProvider;
@@ -32,8 +35,11 @@ import br.com.laboon.velocity.messaging.VelocityMessageService;
 import br.com.laboon.velocity.party.PartyServerService;
 import br.com.laboon.velocity.player.PlayerManager;
 import br.com.laboon.velocity.player.PlayerServerService;
+import br.com.laboon.velocity.report.ReportNotificationService;
 import br.com.laboon.velocity.server.*;
+
 import com.google.inject.Inject;
+
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
@@ -41,6 +47,7 @@ import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.scheduler.ScheduledTask;
+
 import org.slf4j.Logger;
 
 import java.nio.file.Path;
@@ -159,7 +166,8 @@ public final class LaboonVelocity {
      */
 
     private PartyManager partyManager;
-    private PartyServerService  partyServerService;
+
+    private PartyServerService partyServerService;
 
     /*
      * =========================
@@ -168,6 +176,20 @@ public final class LaboonVelocity {
      */
 
     private FriendManager friendManager;
+
+    /*
+     * =============================
+     * REPORTS
+     * =============================
+     */
+
+    private ReportManager reportManager;
+
+    private ReportNotificationService reportNotificationService;
+
+    private ReportExpirationService reportExpirationService;
+
+    private ScheduledTask reportExpirationTask;
 
     @Inject
     public LaboonVelocity(
@@ -222,6 +244,14 @@ public final class LaboonVelocity {
          */
 
         setupManagers();
+
+        /*
+         * =========================
+         * EXPIRAÇÃO DE REPORTS
+         * =========================
+         */
+
+        startReportExpiration();
 
         /*
          * =========================
@@ -475,11 +505,85 @@ public final class LaboonVelocity {
                         gameCoinsRepository
                 );
 
-        partyManager = new PartyManager(redisManager);
-        partyServerService = new PartyServerService(proxyServer, partyManager, serverRegistry);
+        /*
+         * =========================
+         * PARTY
+         * =========================
+         */
+
+        partyManager =
+                new PartyManager(
+                        redisManager
+                );
+
+        partyServerService =
+                new PartyServerService(
+                        proxyServer,
+                        partyManager,
+                        serverRegistry
+                );
+
+        /*
+         * =========================
+         * REPORTS
+         * =========================
+         */
+
+        reportManager =
+                new ReportManager(
+                        redisManager
+                );
+
+        reportNotificationService =
+                new ReportNotificationService(
+                        proxyServer,
+                        accountManager
+                );
+
+        reportExpirationService =
+                new ReportExpirationService(
+                        reportManager
+                );
 
         logger.info(
                 "Managers inicializados."
+        );
+    }
+
+    /*
+     * =========================
+     * REPORT EXPIRATION
+     * =========================
+     */
+
+    private void startReportExpiration() {
+
+        reportExpirationTask =
+                proxyServer
+                        .getScheduler()
+                        .buildTask(
+                                this,
+                                () -> {
+
+                                    if (
+                                            reportExpirationService
+                                                    == null
+                                    ) {
+                                        return;
+                                    }
+
+                                    reportExpirationService
+                                            .checkExpiredReports();
+                                }
+                        )
+                        .repeat(
+                                10,
+                                TimeUnit.MINUTES
+                        )
+                        .schedule();
+
+        logger.info(
+                "Expiração de reports iniciada."
         );
     }
 
@@ -537,7 +641,6 @@ public final class LaboonVelocity {
         );
     }
 
-
     /*
      * =========================
      * AMIGOS
@@ -573,9 +676,17 @@ public final class LaboonVelocity {
                         languageService,
                         temporaryGroupService,
                         groupUpdatePublisher,
+
+                        serverSelector,
+                        connectionService,
+
                         partyManager,
                         partyServerService,
-                        friendManager
+
+                        friendManager,
+
+                        reportManager,
+                        reportNotificationService
                 );
 
         commandFramework =
@@ -646,7 +757,8 @@ public final class LaboonVelocity {
                         .getScheduler()
                         .buildTask(
                                 this,
-                                () -> serverRegistrySync.sync()
+                                () ->
+                                        serverRegistrySync.sync()
                         )
                         .repeat(
                                 5,
@@ -812,15 +924,41 @@ public final class LaboonVelocity {
                 "Desligando Laboon..."
         );
 
+        /*
+         * Cancela sincronização
+         * dos servidores.
+         */
+
         if (serverSyncTask != null) {
+
             serverSyncTask.cancel();
         }
 
+        /*
+         * Cancela expiração
+         * dos reports.
+         */
+
+        if (reportExpirationTask != null) {
+
+            reportExpirationTask.cancel();
+        }
+
+        /*
+         * Para o heartbeat.
+         */
+
         if (proxyHeartbeat != null) {
+
             proxyHeartbeat.stop();
         }
 
+        /*
+         * Fecha Redis.
+         */
+
         if (redisManager != null) {
+
             redisManager.close();
         }
 
@@ -836,54 +974,73 @@ public final class LaboonVelocity {
      */
 
     public ProxyServer getProxyServer() {
+
         return proxyServer;
     }
 
     public MessageBus getMessageBus() {
+
         return messageBus;
     }
 
     public PlayerManager getPlayerManager() {
+
         return playerManager;
     }
 
     public ProxyServerManager getServerManager() {
+
         return serverManager;
     }
 
     public ServerSelector getServerSelector() {
+
         return serverSelector;
     }
 
-    public ServerAvailabilityService getServerAvailabilityService() {
+    public ServerAvailabilityService
+    getServerAvailabilityService() {
+
         return serverAvailabilityService;
     }
 
-    public ServerFallbackService getFallbackService() {
+    public ServerFallbackService
+    getFallbackService() {
+
         return fallbackService;
     }
 
-    public PlayerServerService getPlayerServerService() {
+    public PlayerServerService
+    getPlayerServerService() {
+
         return playerServerService;
     }
 
     public ServerCache getServerCache() {
+
         return serverCache;
     }
 
     public LanguageService getLanguageService() {
+
         return languageService;
     }
 
-    public VelocityCommandFramework getCommandFramework() {
+    public VelocityCommandFramework
+    getCommandFramework() {
+
         return commandFramework;
     }
 
-    public VelocityCommandProvider getCommandProvider() {
+    public VelocityCommandProvider
+    getCommandProvider() {
+
         return commandProvider;
     }
 
-    public TemporaryGroupService getTemporaryGroupService() {
+    public TemporaryGroupService
+    getTemporaryGroupService() {
+
         return temporaryGroupService;
     }
 
@@ -892,6 +1049,7 @@ public final class LaboonVelocity {
     ) {
 
         if (player == null) {
+
             return null;
         }
 
@@ -901,10 +1059,12 @@ public final class LaboonVelocity {
     }
 
     public FriendManager getFriendManager() {
+
         return friendManager;
     }
 
     public PartyManager getPartyManager() {
+
         return partyManager;
     }
 }
