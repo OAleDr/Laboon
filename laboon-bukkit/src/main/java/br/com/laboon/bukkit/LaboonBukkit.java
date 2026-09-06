@@ -94,6 +94,7 @@ public final class LaboonBukkit extends JavaPlugin {
 
     private SkinService skinService;
 
+
     @Override
     public void onEnable() {
 
