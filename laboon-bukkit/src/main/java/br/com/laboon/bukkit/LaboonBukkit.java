@@ -1,5 +1,10 @@
 package br.com.laboon.bukkit;
 
+import br.com.laboon.bukkit.api.CooldownAPI;
+import br.com.laboon.bukkit.api.TitleAPI;
+import br.com.laboon.bukkit.api.hologram.HologramListener;
+import br.com.laboon.bukkit.api.npc.NPCListener;
+import br.com.laboon.bukkit.api.skin.SkinService;
 import br.com.laboon.bukkit.chat.ChatFormatter;
 import br.com.laboon.bukkit.chat.ChatListener;
 import br.com.laboon.bukkit.command.BukkitCommandFramework;
@@ -84,6 +89,11 @@ public final class LaboonBukkit extends JavaPlugin {
 
     private ProfileListener profileListener;
 
+    private HologramListener hologramListener;
+    private TitleAPI titleAPI;
+
+    private SkinService skinService;
+
     @Override
     public void onEnable() {
 
@@ -110,6 +120,13 @@ public final class LaboonBukkit extends JavaPlugin {
         registerListeners();
 
         registerCommands();
+
+        /*
+         * APIs Bukkit
+         */
+        CooldownAPI.initialize(this);
+
+        startHologramAPI();
 
         startHeartbeat();
 
@@ -161,6 +178,8 @@ public final class LaboonBukkit extends JavaPlugin {
         profileProvider = new BukkitProfileProvider(accountRepository, statisticsRepository, gameCoinsRepository);
 
         displayManager = new DisplayManager(profileProvider, serverConfig);
+
+        skinService = new SkinService(this);
 
         getLogger().info("Redis conectado com sucesso!");
     }
@@ -214,14 +233,41 @@ public final class LaboonBukkit extends JavaPlugin {
 
         getServer().getPluginManager().registerEvents(punishmentChatListener, this);
 
+        /*
+         * Hologram API
+         */
+        hologramListener = new HologramListener(this);
+
+        getServer().getPluginManager().registerEvents(hologramListener, this);
+
+        getServer().getPluginManager().registerEvents(new NPCListener(this), this);
+
+        /*
+         * Title API
+         */
+        titleAPI = new TitleAPI();
+
+        getServer().getPluginManager().registerEvents(titleAPI, this);
+
         getLogger().info("Listeners registrados.");
+    }
+
+    private void startHologramAPI() {
+
+        if (hologramListener == null) {
+            return;
+        }
+
+        hologramListener.start();
+
+        getLogger().info("Hologram API iniciada.");
     }
 
     private void registerCommands() {
 
         commandFramework = new BukkitCommandFramework(this, profileProvider);
 
-        CommandProvider commandProvider = new BukkitCommandProvider(guiManager, anvilGuiManager, profileProvider, languageService, reportListGui, friendGui);
+        CommandProvider commandProvider = new BukkitCommandProvider(this, skinService, guiManager, anvilGuiManager, profileProvider, languageService, reportListGui, friendGui);
 
         List<Class<? extends CommandClass>> commands = CommandScanner.scan("br.com.laboon.bukkit.command.commands");
 
@@ -254,6 +300,12 @@ public final class LaboonBukkit extends JavaPlugin {
 
     @Override
     public void onDisable() {
+
+        if (hologramListener != null) {
+            hologramListener.stop();
+        }
+
+        CooldownAPI.shutdown();
 
         if (tabListener != null) {
             tabListener.stop();
