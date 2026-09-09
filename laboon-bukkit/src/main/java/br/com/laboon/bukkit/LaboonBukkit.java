@@ -27,6 +27,7 @@ import br.com.laboon.bukkit.profile.BukkitProfileProvider;
 import br.com.laboon.bukkit.profile.ProfileListener;
 import br.com.laboon.bukkit.profile.ProfileProvider;
 import br.com.laboon.bukkit.server.ServerHeartbeat;
+import br.com.laboon.bukkit.server.ServerRuntimeState;
 import br.com.laboon.core.account.AccountManager;
 import br.com.laboon.core.account.AccountRepository;
 import br.com.laboon.core.command.CommandClass;
@@ -96,6 +97,7 @@ public final class LaboonBukkit extends JavaPlugin {
 
     private SkinService skinService;
 
+    private volatile ServerRuntimeState serverRuntimeState;
 
     @Override
     public void onEnable() {
@@ -254,10 +256,7 @@ public final class LaboonBukkit extends JavaPlugin {
 
         getServer().getPluginManager().registerEvents(titleAPI, this);
 
-        getServer().getPluginManager().registerEvents(
-                new ClickItemListener(),
-                this
-        );
+        getServer().getPluginManager().registerEvents(new ClickItemListener(), this);
 
         getLogger().info("Listeners registrados.");
     }
@@ -301,7 +300,9 @@ public final class LaboonBukkit extends JavaPlugin {
 
     private void startHeartbeat() {
 
-        heartbeat = new ServerHeartbeat(this, redisManager, serverConfig, messageBus);
+        serverRuntimeState = new ServerRuntimeState();
+
+        heartbeat = new ServerHeartbeat(this, () -> serverRuntimeState, redisManager, serverConfig, messageBus);
 
         heartbeat.start();
 
@@ -385,4 +386,9 @@ public final class LaboonBukkit extends JavaPlugin {
     public FriendGui getFriendGui() {
         return friendGui;
     }
+
+    public ServerRuntimeState getServerRuntimeState() {
+        return serverRuntimeState;
+    }
+
 }

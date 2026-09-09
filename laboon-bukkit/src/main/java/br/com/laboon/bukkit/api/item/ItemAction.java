@@ -6,7 +6,9 @@ public enum ItemAction {
     RIGHT_CLICK_BLOCK,
 
     LEFT_CLICK_AIR,
-    LEFT_CLICK_BLOCK;
+    LEFT_CLICK_BLOCK,
+
+    RIGHT_CLICK_PLAYER;
 
     public boolean isRightClick() {
         return this == RIGHT_CLICK_AIR || this == RIGHT_CLICK_BLOCK;

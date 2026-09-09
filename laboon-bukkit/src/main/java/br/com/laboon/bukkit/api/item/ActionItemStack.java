@@ -108,6 +108,10 @@ public final class ActionItemStack {
      * Executa o handler associado ao item.
      */
     public static boolean handle(Player player, ItemStack item, ItemAction action) {
+        return handle(player, null, item, action);
+    }
+
+    public static boolean handle(Player player, Player player1, ItemStack item, ItemAction action) {
 
         InteractHandler handler = getHandler(item);
 
@@ -115,7 +119,7 @@ public final class ActionItemStack {
             return false;
         }
 
-        return handler.onInteract(player, null, item, action);
+        return handler.onInteract(player, player1, item, action);
     }
 
     public interface InteractHandler {

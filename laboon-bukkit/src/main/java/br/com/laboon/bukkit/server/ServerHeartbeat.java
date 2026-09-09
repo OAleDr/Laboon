@@ -4,11 +4,14 @@ import br.com.laboon.bukkit.config.ServerConfig;
 import br.com.laboon.core.messaging.Channels;
 import br.com.laboon.core.messaging.MessageBus;
 import br.com.laboon.core.redis.RedisManager;
-import br.com.laboon.core.server.*;
+import br.com.laboon.core.server.ServerInfo;
+import br.com.laboon.core.server.ServerInfoSerializer;
 
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Supplier;
 
 public final class ServerHeartbeat {
 
@@ -16,17 +19,14 @@ public final class ServerHeartbeat {
     private static final int SERVER_TTL = 15;
 
     private final JavaPlugin plugin;
+    private final Supplier<ServerRuntimeState> runtimeState;
     private final RedisManager redisManager;
     private final ServerConfig config;
     private final MessageBus messageBus;
 
-    public ServerHeartbeat(
-            JavaPlugin plugin,
-            RedisManager redisManager,
-            ServerConfig config,
-            MessageBus messageBus
-    ) {
+    public ServerHeartbeat(JavaPlugin plugin, Supplier<ServerRuntimeState> runtimeState, RedisManager redisManager, ServerConfig config, MessageBus messageBus) {
         this.plugin = plugin;
+        this.runtimeState = runtimeState;
         this.redisManager = redisManager;
         this.config = config;
         this.messageBus = messageBus;
@@ -36,115 +36,61 @@ public final class ServerHeartbeat {
 
         update();
 
-        plugin.getServer()
-                .getScheduler()
-                .runTaskTimerAsynchronously(
-                        plugin,
-                        this::update,
-                        HEARTBEAT_INTERVAL,
-                        HEARTBEAT_INTERVAL
-                );
+        plugin.getServer().getScheduler().runTaskTimerAsynchronously(plugin, this::update, HEARTBEAT_INTERVAL, HEARTBEAT_INTERVAL);
     }
 
     private void update() {
 
-        ServerInfo server =
-                createServerInfo();
+        ServerInfo server = createServerInfo();
 
-        String key =
-                "laboon:server:"
-                        + server.getName();
+        String key = "laboon:server:" + server.getName();
 
-        redisManager
-                .getJedis()
-                .hset(
-                        key,
-                        Map.of(
-                                "name",
-                                server.getName(),
+        Map<String, String> data = new HashMap<>();
 
-                                "type",
-                                server.getType().name(),
+        data.put("name", server.getName());
 
-                                "role",
-                                server.getRole().name(),
+        data.put("type", server.getType().name());
 
-                                "state",
-                                server.getState().name(),
+        data.put("role", server.getRole() == null ? "" : server.getRole().name());
 
-                                "host",
-                                server.getHost(),
+        data.put("state", server.getState() == null ? "" : server.getState().name());
 
-                                "port",
-                                String.valueOf(
-                                        server.getPort()
-                                ),
+        data.put("mode", server.getMode() == null ? "" : server.getMode().name());
 
-                                "players",
-                                String.valueOf(
-                                        server.getPlayers()
-                                ),
+        data.put("map", server.getMap() == null ? "" : server.getMap());
 
-                                "maxPlayers",
-                                String.valueOf(
-                                        server.getMaxPlayers()
-                                )
-                        )
-                );
+        data.put("host", server.getHost());
 
-        redisManager
-                .getJedis()
-                .expire(
-                        key,
-                        SERVER_TTL
-                );
+        data.put("port", String.valueOf(server.getPort()));
 
-        messageBus.publish(
-                Channels.SERVER_INFO,
-                ServerInfoSerializer.serialize(
-                        server
-                )
-        );
+        data.put("players", String.valueOf(server.getPlayers()));
+
+        data.put("maxPlayers", String.valueOf(server.getMaxPlayers()));
+
+        redisManager.getJedis().hset(key, data);
+
+        redisManager.getJedis().expire(key, SERVER_TTL);
+
+        messageBus.publish(Channels.SERVER_INFO, ServerInfoSerializer.serialize(server));
     }
 
     private ServerInfo createServerInfo() {
 
-        ServerType type =
-                config.getServerType();
+        ServerInfo server = new ServerInfo(config.getServerName(), config.getServerType(), config.getServerRole(), config.getHost(), config.getPort(), config.getMaxPlayers());
 
-        ServerRole role =
-                config.getServerRole();
+        server.setState(runtimeState.get().getState());
 
-        ServerInfo server =
-                new ServerInfo(
-                        config.getServerName(),
-                        type,
-                        role,
-                        config.getHost(),
-                        config.getPort(),
-                        config.getMaxPlayers()
-                );
+        server.setMode(runtimeState.get().getMode());
 
-        server.setPlayers(
-                plugin.getServer()
-                        .getOnlinePlayers()
-                        .size()
-        );
+        server.setMap(runtimeState.get().getMap());
 
-        server.setState(
-                ServerState.ONLINE
-        );
+        server.setPlayers(plugin.getServer().getOnlinePlayers().size());
 
         return server;
     }
 
     public void stop() {
 
-        redisManager
-                .getJedis()
-                .del(
-                        "laboon:server:"
-                                + config.getServerName()
-                );
+        redisManager.getJedis().del("laboon:server:" + config.getServerName());
     }
 }
