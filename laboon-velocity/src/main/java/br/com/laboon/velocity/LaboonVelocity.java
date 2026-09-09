@@ -7,6 +7,7 @@ import br.com.laboon.core.command.CommandLoader;
 import br.com.laboon.core.command.CommandScanner;
 import br.com.laboon.core.friend.FriendManager;
 import br.com.laboon.core.language.LanguageService;
+import br.com.laboon.core.messaging.Channels;
 import br.com.laboon.core.messaging.MessageBus;
 import br.com.laboon.core.messaging.RedisPublisher;
 import br.com.laboon.core.messaging.RedisSubscriber;
@@ -100,6 +101,8 @@ public final class LaboonVelocity {
     private ServerCache serverCache;
 
     private ScheduledTask serverSyncTask;
+
+    private ScheduledTask networkPlayerCountTask;
 
     /*
      * =========================
@@ -472,6 +475,8 @@ public final class LaboonVelocity {
 
         messageBus = new MessageBus(publisher, subscriber);
 
+        startNetworkPlayerCount();
+
         /*
          * =========================
          * GRUPO
@@ -572,6 +577,15 @@ public final class LaboonVelocity {
         logger.info("Sincronização de servidores iniciada.");
     }
 
+    private void startNetworkPlayerCount() {
+
+        messageBus.publish(Channels.NETWORK, String.valueOf(proxyServer.getPlayerCount()));
+
+        networkPlayerCountTask = proxyServer.getScheduler().buildTask(this, () -> {
+            messageBus.publish(Channels.NETWORK, String.valueOf(proxyServer.getPlayerCount()));
+        }).repeat(5, TimeUnit.SECONDS).schedule();
+    }
+
     /*
      * =========================
      * COMMANDS
@@ -651,6 +665,11 @@ public final class LaboonVelocity {
         if (serverSyncTask != null) {
 
             serverSyncTask.cancel();
+        }
+
+        if (networkPlayerCountTask != null) {
+            networkPlayerCountTask.cancel();
+            networkPlayerCountTask = null;
         }
 
         /*
