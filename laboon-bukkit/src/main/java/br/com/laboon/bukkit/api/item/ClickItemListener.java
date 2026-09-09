@@ -6,6 +6,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
@@ -35,6 +36,31 @@ public final class ClickItemListener implements Listener {
         }
 
         if (ActionItemStack.handle(event.getPlayer(), item, itemAction)) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = false)
+    public void onInventoryClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) {
+            return;
+        }
+        ItemStack item = event.getCurrentItem();
+        if (isEmpty(item)) {
+            return;
+        }
+        ItemAction itemAction;
+        switch (event.getClick()) {
+            case LEFT:
+                itemAction = ItemAction.INVENTORY_LEFT_CLICK;
+                break;
+            case RIGHT:
+                itemAction = ItemAction.INVENTORY_RIGHT_CLICK;
+                break;
+            default:
+                return;
+        }
+        if (ActionItemStack.handle(player, item, itemAction)) {
             event.setCancelled(true);
         }
     }
