@@ -1,4 +1,5 @@
 import org.gradle.api.plugins.JavaPluginExtension
+import org.gradle.api.publish.PublishingExtension
 import org.gradle.api.tasks.compile.JavaCompile
 
 allprojects {
@@ -17,6 +18,7 @@ allprojects {
 
 subprojects {
     apply(plugin = "java")
+    apply(plugin = "maven-publish")
 
     extensions.configure<JavaPluginExtension> {
         toolchain {
@@ -26,5 +28,13 @@ subprojects {
 
     tasks.withType<JavaCompile>().configureEach {
         options.encoding = "UTF-8"
+    }
+
+    extensions.configure<PublishingExtension> {
+        publications {
+            create<MavenPublication>("mavenJava") {
+                from(components["java"])
+            }
+        }
     }
 }

@@ -18,16 +18,7 @@ public final class ServerRepository {
     public void save(ServerInfo server) {
         String key = "laboon:server:" + server.getName();
 
-        redis.hset(key, Map.of(
-                "name", server.getName(),
-                "type", server.getType().name(),
-                "role", server.getRole().name(),
-                "host", server.getHost(),
-                "port", String.valueOf(server.getPort()),
-                "maxPlayers", String.valueOf(server.getMaxPlayers()),
-                "state", server.getState().name(),
-                "players", String.valueOf(server.getPlayers())
-        ));
+        redis.hset(key, Map.of("name", server.getName(), "type", server.getType().name(), "role", server.getRole().name(), "mode", server.getMode().name(), "map", server.getMap(), "host", server.getHost(), "port", String.valueOf(server.getPort()), "maxPlayers", String.valueOf(server.getMaxPlayers()), "state", server.getState().name(), "players", String.valueOf(server.getPlayers())));
         redis.expire(key, 15);
     }
 
@@ -37,13 +28,9 @@ public final class ServerRepository {
 
         for (String key : redis.keys("laboon:server:*")) {
 
-            String name =
-                    key.substring(
-                            "laboon:server:".length()
-                    );
+            String name = key.substring("laboon:server:".length());
 
-            ServerInfo server =
-                    findByName(name);
+            ServerInfo server = findByName(name);
 
             if (server != null) {
                 servers.add(server);
@@ -62,22 +49,15 @@ public final class ServerRepository {
             return null;
         }
 
-        ServerInfo server = new ServerInfo(
-                data.get("name"),
-                ServerType.valueOf(data.get("type")),
-                ServerRole.valueOf(data.get("role")),
-                data.get("host"),
-                Integer.parseInt(data.get("port")),
-                Integer.parseInt(data.get("maxPlayers"))
-        );
+        ServerInfo server = new ServerInfo(data.get("name"), ServerType.valueOf(data.get("type")), ServerRole.valueOf(data.get("role")), data.get("host"), Integer.parseInt(data.get("port")), Integer.parseInt(data.get("maxPlayers")));
 
-        server.setState(
-                ServerState.valueOf(data.get("state"))
-        );
+        server.setState(ServerState.valueOf(data.get("state")));
 
-        server.setPlayers(
-                Integer.parseInt(data.get("players"))
-        );
+        server.setPlayers(Integer.parseInt(data.get("players")));
+
+        server.setMode(ServerMode.valueOf(data.get("mode")));
+
+        server.setMap(data.get("map"));
 
         return server;
     }
@@ -98,54 +78,22 @@ public final class ServerRepository {
         return servers;
     }
 
-    public ServerInfo findAvailable(
-            ServerType type,
-            ServerRole role
-    ) {
+    public ServerInfo findAvailable(ServerType type, ServerRole role) {
 
-        return findByTypeAndRole(
-                type,
-                role
-        )
-                .stream()
-                .filter(server ->
-                        server.getState() == ServerState.ONLINE
-                                || server.getState() == ServerState.WAITING
-                )
-                .filter(server ->
-                        server.getPlayers()
-                                < server.getMaxPlayers()
-                )
-                .min(
-                        (a, b) ->
-                                Integer.compare(
-                                        a.getPlayers(),
-                                        b.getPlayers()
-                                )
-                )
-                .orElse(null);
+        return findByTypeAndRole(type, role).stream().filter(server -> server.getState() == ServerState.ONLINE || server.getState() == ServerState.WAITING).filter(server -> server.getPlayers() < server.getMaxPlayers()).min((a, b) -> Integer.compare(a.getPlayers(), b.getPlayers())).orElse(null);
     }
 
-    public List<ServerInfo> findByRole(
-            ServerRole role
-    ) {
+    public List<ServerInfo> findByRole(ServerRole role) {
 
-        List<ServerInfo> servers =
-                new ArrayList<>();
+        List<ServerInfo> servers = new ArrayList<>();
 
-        for (String key :
-                redis.keys("laboon:server:*")) {
+        for (String key : redis.keys("laboon:server:*")) {
 
-            String name =
-                    key.substring(
-                            "laboon:server:".length()
-                    );
+            String name = key.substring("laboon:server:".length());
 
-            ServerInfo server =
-                    findByName(name);
+            ServerInfo server = findByName(name);
 
-            if (server != null &&
-                    server.getRole() == role) {
+            if (server != null && server.getRole() == role) {
 
                 servers.add(server);
             }
@@ -154,28 +102,17 @@ public final class ServerRepository {
         return servers;
     }
 
-    public List<ServerInfo> findByTypeAndRole(
-            ServerType type,
-            ServerRole role
-    ) {
+    public List<ServerInfo> findByTypeAndRole(ServerType type, ServerRole role) {
 
-        List<ServerInfo> servers =
-                new ArrayList<>();
+        List<ServerInfo> servers = new ArrayList<>();
 
-        for (String key :
-                redis.keys("laboon:server:*")) {
+        for (String key : redis.keys("laboon:server:*")) {
 
-            String name =
-                    key.substring(
-                            "laboon:server:".length()
-                    );
+            String name = key.substring("laboon:server:".length());
 
-            ServerInfo server =
-                    findByName(name);
+            ServerInfo server = findByName(name);
 
-            if (server != null
-                    && server.getType() == type
-                    && server.getRole() == role) {
+            if (server != null && server.getType() == type && server.getRole() == role) {
 
                 servers.add(server);
             }

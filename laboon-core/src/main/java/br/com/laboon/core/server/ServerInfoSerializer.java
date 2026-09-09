@@ -12,6 +12,8 @@ public final class ServerInfoSerializer {
         return "name=" + server.getName()
                 + ";type=" + server.getType().name()
                 + ";role=" + server.getRole().name()
+                + ";mode=" + server.getMode().name()
+                + ";map=" + server.getMap()
                 + ";host=" + server.getHost()
                 + ";port=" + server.getPort()
                 + ";maxPlayers=" + server.getMaxPlayers()
@@ -29,6 +31,8 @@ public final class ServerInfoSerializer {
         String name = null;
         ServerType type = null;
         ServerRole role = null;
+        ServerMode mode = null;
+        String map = null;
         String host = null;
 
         int port = 0;
@@ -66,6 +70,14 @@ public final class ServerInfoSerializer {
                 case "role":
                     role =
                             ServerRole.valueOf(value);
+                    break;
+
+                case "mode":
+                    mode = ServerMode.valueOf(value);
+                    break;
+
+                case "map":
+                    map = value;
                     break;
 
                 case "host":
@@ -118,6 +130,9 @@ public final class ServerInfoSerializer {
                         port,
                         maxPlayers
                 );
+
+        server.setMode(mode);
+        server.setMap(map);
 
         server.setPlayers(players);
         server.setState(state);

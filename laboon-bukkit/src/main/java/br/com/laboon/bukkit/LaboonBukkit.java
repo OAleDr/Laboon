@@ -3,6 +3,8 @@ package br.com.laboon.bukkit;
 import br.com.laboon.bukkit.api.CooldownAPI;
 import br.com.laboon.bukkit.api.TitleAPI;
 import br.com.laboon.bukkit.api.hologram.HologramListener;
+import br.com.laboon.bukkit.api.item.ActionItemStack;
+import br.com.laboon.bukkit.api.item.ClickItemListener;
 import br.com.laboon.bukkit.api.npc.NPCListener;
 import br.com.laboon.bukkit.api.skin.SkinService;
 import br.com.laboon.bukkit.chat.ChatFormatter;
@@ -139,6 +141,8 @@ public final class LaboonBukkit extends JavaPlugin {
             profileListener.start();
         }
 
+        ActionItemStack.init(this);
+
         getLogger().info("Laboon Bukkit iniciado!");
     }
 
@@ -249,6 +253,11 @@ public final class LaboonBukkit extends JavaPlugin {
         titleAPI = new TitleAPI();
 
         getServer().getPluginManager().registerEvents(titleAPI, this);
+
+        getServer().getPluginManager().registerEvents(
+                new ClickItemListener(),
+                this
+        );
 
         getLogger().info("Listeners registrados.");
     }
