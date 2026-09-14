@@ -22,6 +22,8 @@ import br.com.laboon.core.report.ReportManager;
 import br.com.laboon.core.server.ServerRegistry;
 
 import br.com.laboon.velocity.account.VelocityAccountService;
+import br.com.laboon.velocity.auth.AuthenticationService;
+import br.com.laboon.velocity.auth.MojangProfileService;
 import br.com.laboon.velocity.command.VelocityCommandFramework;
 import br.com.laboon.velocity.command.VelocityCommandProvider;
 import br.com.laboon.velocity.command.commands.LaboonCommand;
@@ -127,6 +129,10 @@ public final class LaboonVelocity {
     private AccountRepository accountRepository;
 
     private AccountSessionManager accountSessionManager;
+
+    private MojangProfileService mojangProfileService;
+
+    private AuthenticationService authenticationService;
 
     private TemporaryGroupService temporaryGroupService;
 
@@ -394,6 +400,10 @@ public final class LaboonVelocity {
 
         accountSessionManager = new AccountSessionManager();
 
+        mojangProfileService = new MojangProfileService();
+
+        authenticationService = new AuthenticationService(mojangProfileService);
+
         velocityAccountService = new VelocityAccountService(accountManager, accountSessionManager);
 
         /*
@@ -494,6 +504,22 @@ public final class LaboonVelocity {
         messageService = new VelocityMessageService(messageBus, registrationService);
 
         messageService.listen();
+
+        /*
+         * =========================
+         * ACCOUNT DELIVERY
+         * =========================
+         */
+
+        AccountDeliveryListener accountDeliveryListener =
+                new AccountDeliveryListener(
+                        logger,
+                        accountRepository,
+                        temporaryGroupService,
+                        groupUpdatePublisher
+                );
+
+        accountDeliveryListener.register(messageBus);
 
         logger.info("Messaging inicializado.");
     }
@@ -633,7 +659,7 @@ public final class LaboonVelocity {
 
         proxyServer.getEventManager().register(this, new ServerDisconnectListener(serverRegistry, serverCache, fallbackService));
 
-        proxyServer.getEventManager().register(this, new AccountConnectionListener(velocityAccountService, profileManager));
+        proxyServer.getEventManager().register(this, new AccountConnectionListener(velocityAccountService, profileManager, authenticationService));
 
         /*
          * =========================

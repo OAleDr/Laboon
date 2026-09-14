@@ -18,8 +18,36 @@ public final class AccountManager {
         return service.findByName(name);
     }
 
-    public Account getOrCreateOriginal(UUID uniqueId, String name) {
-        return service.getOrCreateOriginal(uniqueId, name);
+    public Account getOrCreateOriginal(
+            UUID uniqueId,
+            String name
+    ) {
+        return service.getOrCreateOriginal(
+                uniqueId,
+                name
+        );
+    }
+
+    public Account getOrCreateLaboon(
+            UUID uniqueId,
+            String name
+    ) {
+        return service.getOrCreateLaboon(
+                uniqueId,
+                name
+        );
+    }
+
+    public Account getOrCreate(
+            UUID uniqueId,
+            String name,
+            AccountType type
+    ) {
+        return service.getOrCreate(
+                uniqueId,
+                name,
+                type
+        );
     }
 
     public void save(Account account) {

@@ -22,19 +22,57 @@ public final class AccountService {
     }
 
     public Account getOrCreateOriginal(UUID uniqueId, String name) {
+        return getOrCreate(uniqueId, name, AccountType.ORIGINAL);
+    }
+
+    public Account getOrCreateLaboon(UUID uniqueId, String name) {
+        return getOrCreate(uniqueId, name, AccountType.LABOON);
+    }
+
+    public Account getOrCreate(
+            UUID uniqueId,
+            String name,
+            AccountType type
+    ) {
+
+        if (uniqueId == null) {
+            throw new IllegalArgumentException(
+                    "UUID da conta não pode ser nulo."
+            );
+        }
+
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Nome da conta não pode ser nulo ou vazio."
+            );
+        }
+
+        if (type == null) {
+            throw new IllegalArgumentException(
+                    "Tipo da conta não pode ser nulo."
+            );
+        }
 
         Account account = repository.findById(uniqueId);
 
         if (account != null) {
 
             account.setName(name);
+            account.setType(type);
 
             repository.save(account);
 
             return account;
         }
 
-        account = new Account(uniqueId, name);
+        account = new Account(
+                uniqueId,
+                name,
+                type,
+                Instant.now(),
+                null,
+                new AccountPreferences()
+        );
 
         repository.save(account);
 

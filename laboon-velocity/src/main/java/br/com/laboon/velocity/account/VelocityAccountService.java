@@ -3,6 +3,7 @@ package br.com.laboon.velocity.account;
 import br.com.laboon.core.account.Account;
 import br.com.laboon.core.account.AccountManager;
 import br.com.laboon.core.account.AccountSessionManager;
+import br.com.laboon.velocity.auth.AuthenticationResult;
 
 import com.velocitypowered.api.proxy.Player;
 
@@ -16,16 +17,11 @@ public final class VelocityAccountService {
             AccountSessionManager sessionManager
     ) {
 
-        this.accountManager =
-                accountManager;
-
-        this.sessionManager =
-                sessionManager;
+        this.accountManager = accountManager;
+        this.sessionManager = sessionManager;
     }
 
-    public Account load(
-            Player player
-    ) {
+    public Account load(Player player) {
 
         return accountManager.get(
                 player.getUniqueId()
@@ -33,18 +29,17 @@ public final class VelocityAccountService {
     }
 
     public Account loadOrCreate(
-            Player player
+            Player player,
+            AuthenticationResult authentication
     ) {
 
-        Account account =
-                accountManager.getOrCreateOriginal(
-                        player.getUniqueId(),
-                        player.getUsername()
-                );
-
-        accountManager.updateLastLogin(
-                account
+        Account account = accountManager.getOrCreate(
+                authentication.getUuid(),
+                authentication.getUsername(),
+                authentication.getType()
         );
+
+        accountManager.updateLastLogin(account);
 
         sessionManager.create(
                 player.getUniqueId(),
@@ -58,10 +53,9 @@ public final class VelocityAccountService {
             Player player
     ) {
 
-        var session =
-                sessionManager.get(
-                        player.getUniqueId()
-                );
+        var session = sessionManager.get(
+                player.getUniqueId()
+        );
 
         if (session == null) {
             return null;
