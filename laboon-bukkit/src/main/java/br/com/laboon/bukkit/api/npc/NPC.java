@@ -1,7 +1,9 @@
 package br.com.laboon.bukkit.api.npc;
 
+import br.com.laboon.bukkit.LaboonBukkit;
 import com.comphenix.protocol.wrappers.WrappedGameProfile;
 import com.comphenix.protocol.wrappers.WrappedSignedProperty;
+
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
@@ -14,9 +16,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public final class NPC {
 
-    private static final Map<Integer, NPC> NPCS = new ConcurrentHashMap<>();
+    private static final Map<Integer, NPC> NPCS =
+            new ConcurrentHashMap<>();
 
-    private static final AtomicInteger ENTITY_ID = new AtomicInteger(1_000_000);
+    private static final AtomicInteger ENTITY_ID =
+            new AtomicInteger(1_000_000);
 
     private final JavaPlugin plugin;
 
@@ -34,56 +38,97 @@ public final class NPC {
 
     private NPCClickAction clickAction;
 
-    public NPC(JavaPlugin plugin, Location location, String name) {
-        this(plugin, location, new Profile(name));
+    public NPC(
+            Location location,
+            String name
+    ) {
+        this(
+                location,
+                new Profile(name)
+        );
     }
 
-    public NPC(JavaPlugin plugin, Location location, Profile profile) {
+    public NPC(
+            Location location,
+            Profile profile
+    ) {
 
         if (profile == null) {
-            throw new IllegalArgumentException("Profile não pode ser nulo.");
+            throw new IllegalArgumentException(
+                    "Profile não pode ser nulo."
+            );
         }
 
-        this.plugin = plugin;
+        this.plugin = LaboonBukkit.getInstance();
 
-        this.location = location == null ? null : location.clone();
+        this.location =
+                location == null
+                        ? null
+                        : location.clone();
 
         this.npcProfile = profile;
 
         this.profile = profile.asWrapped();
 
-        this.entityId = ENTITY_ID.getAndIncrement();
+        this.entityId =
+                ENTITY_ID.getAndIncrement();
 
-        this.uniqueId = profile.getUniqueId();
+        this.uniqueId =
+                this.npcProfile.getUniqueId();
 
-        NPCS.put(this.entityId, this);
+        if (this.uniqueId == null) {
+            throw new IllegalArgumentException(
+                    "WrappedGameProfile precisa possuir um UUID."
+            );
+        }
+
+        NPCS.put(
+                this.entityId,
+                this
+        );
     }
 
-    public NPC(JavaPlugin plugin, Location location, WrappedGameProfile profile) {
+    public NPC(
+            JavaPlugin plugin,
+            Location location,
+            WrappedGameProfile profile
+    ) {
 
         if (profile == null) {
-            throw new IllegalArgumentException("Profile não pode ser nulo.");
+            throw new IllegalArgumentException(
+                    "Profile não pode ser nulo."
+            );
+        }
+
+        UUID profileId =
+                profile.getUUID();
+
+        if (profileId == null) {
+            throw new IllegalArgumentException(
+                    "WrappedGameProfile precisa possuir um UUID."
+            );
         }
 
         this.plugin = plugin;
 
-        this.location = location == null ? null : location.clone();
+        this.location =
+                location == null
+                        ? null
+                        : location.clone();
 
         this.profile = profile;
 
         this.npcProfile = null;
 
-        this.entityId = ENTITY_ID.getAndIncrement();
+        this.entityId =
+                ENTITY_ID.getAndIncrement();
 
-        /*
-         * Não utilizamos profile.getUUID()
-         * porque essa chamada apresenta
-         * incompatibilidade no ProtocolLib
-         * utilizado pelo projeto.
-         */
-        this.uniqueId = UUID.randomUUID();
+        this.uniqueId = profileId;
 
-        NPCS.put(this.entityId, this);
+        NPCS.put(
+                this.entityId,
+                this
+        );
     }
 
     public JavaPlugin getPlugin() {
@@ -98,27 +143,14 @@ public final class NPC {
         return uniqueId;
     }
 
-    /**
-     * Retorna o WrappedGameProfile utilizado
-     * pelo ProtocolLib.
-     */
     public WrappedGameProfile getProfile() {
         return profile;
     }
 
-    /**
-     * Retorna o Profile do Laboon.
-     * <p>
-     * É aqui que conseguimos acessar a skin
-     * sem depender de WrappedGameProfile#getProperties().
-     */
     public Profile getNpcProfile() {
         return npcProfile;
     }
 
-    /**
-     * Retorna a propriedade textures do perfil.
-     */
     public WrappedSignedProperty getSkinProperty() {
 
         if (npcProfile == null) {
@@ -129,16 +161,17 @@ public final class NPC {
     }
 
     public Location getLocation() {
-        return location == null ? null : location.clone();
+
+        return location == null
+                ? null
+                : location.clone();
     }
 
     public void setLocation(Location location) {
 
-        if (location == null) {
-            return;
+        if (location != null) {
+            this.location = location.clone();
         }
-
-        this.location = location.clone();
     }
 
     public void teleport(Location location) {
@@ -147,20 +180,28 @@ public final class NPC {
             return;
         }
 
-        this.location = location.clone();
+        this.location =
+                location.clone();
 
         for (Player player : Bukkit.getOnlinePlayers()) {
 
-            if (this.location.getWorld() == null || !this.location.getWorld().equals(player.getWorld())) {
+            if (this.location.getWorld() == null
+                    || !this.location.getWorld()
+                    .equals(player.getWorld())) {
 
                 hide(player);
 
                 continue;
             }
 
-            double distanceSquared = player.getLocation().distanceSquared(this.location);
+            double distanceSquared =
+                    player.getLocation()
+                            .distanceSquared(
+                                    this.location
+                            );
 
-            if (distanceSquared <= NPCListener.getViewDistanceSquared()) {
+            if (distanceSquared
+                    <= NPCListener.getViewDistanceSquared()) {
 
                 show(player);
 
@@ -186,7 +227,9 @@ public final class NPC {
         return clickAction;
     }
 
-    public NPC setClickAction(NPCClickAction clickAction) {
+    public NPC setClickAction(
+            NPCClickAction clickAction
+    ) {
 
         this.clickAction = clickAction;
 
@@ -199,37 +242,44 @@ public final class NPC {
 
     public void show(Player player) {
 
-        if (player == null || !player.isOnline()) {
+        if (player == null
+                || !player.isOnline()
+                || location == null
+                || location.getWorld() == null) {
+
             return;
         }
 
-        if (location == null) {
+        if (!location.getWorld()
+                .equals(player.getWorld())) {
+
             return;
         }
 
-        if (location.getWorld() == null) {
-            return;
-        }
-
-        if (!location.getWorld().equals(player.getWorld())) {
-            return;
-        }
-
-        NPCListener.sendSpawn(this, player);
+        NPCListener.sendSpawn(
+                this,
+                player
+        );
     }
 
     public void hide(Player player) {
 
-        if (player == null || !player.isOnline()) {
+        if (player == null
+                || !player.isOnline()) {
+
             return;
         }
 
-        NPCListener.sendDestroy(this, player);
+        NPCListener.sendDestroy(
+                this,
+                player
+        );
     }
 
     public void remove() {
 
-        for (Player player : Bukkit.getOnlinePlayers()) {
+        for (Player player :
+                Bukkit.getOnlinePlayers()) {
 
             hide(player);
         }
@@ -238,24 +288,24 @@ public final class NPC {
     }
 
     public static NPC getNPC(int entityId) {
-
         return NPCS.get(entityId);
     }
 
     public static boolean isNPC(int entityId) {
-
         return NPCS.containsKey(entityId);
     }
 
     public static void removeNPC(int entityId) {
 
-        NPC npc = NPCS.remove(entityId);
+        NPC npc =
+                NPCS.remove(entityId);
 
         if (npc == null) {
             return;
         }
 
-        for (Player player : Bukkit.getOnlinePlayers()) {
+        for (Player player :
+                Bukkit.getOnlinePlayers()) {
 
             npc.hide(player);
         }
