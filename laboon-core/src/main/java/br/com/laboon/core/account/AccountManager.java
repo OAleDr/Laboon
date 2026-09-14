@@ -22,9 +22,10 @@ public final class AccountManager {
             UUID uniqueId,
             String name
     ) {
-        return service.getOrCreateOriginal(
+        return service.getOrCreate(
                 uniqueId,
-                name
+                name,
+                AccountType.ORIGINAL
         );
     }
 
@@ -32,9 +33,10 @@ public final class AccountManager {
             UUID uniqueId,
             String name
     ) {
-        return service.getOrCreateLaboon(
+        return service.getOrCreate(
                 uniqueId,
-                name
+                name,
+                AccountType.LABOON
         );
     }
 
@@ -52,6 +54,14 @@ public final class AccountManager {
 
     public void save(Account account) {
         service.save(account);
+    }
+
+    public void saveAndUnload(Account account) {
+        service.saveAndUnload(account);
+    }
+
+    public void unload(Account account) {
+        service.unload(account);
     }
 
     public void updateLastLogin(Account account) {

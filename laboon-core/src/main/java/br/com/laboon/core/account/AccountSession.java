@@ -9,11 +9,17 @@ public final class AccountSession {
     private final UUID accountUuid;
     private final Instant loginTime;
 
-    public AccountSession(UUID playerUuid, UUID accountUuid) {
+    private volatile boolean dirty;
+
+    public AccountSession(
+            UUID playerUuid,
+            UUID accountUuid
+    ) {
 
         this.playerUuid = playerUuid;
         this.accountUuid = accountUuid;
         this.loginTime = Instant.now();
+        this.dirty = false;
     }
 
     public UUID getPlayerUuid() {
@@ -26,5 +32,17 @@ public final class AccountSession {
 
     public Instant getLoginTime() {
         return loginTime;
+    }
+
+    public boolean isDirty() {
+        return dirty;
+    }
+
+    public void markDirty() {
+        this.dirty = true;
+    }
+
+    public void markClean() {
+        this.dirty = false;
     }
 }

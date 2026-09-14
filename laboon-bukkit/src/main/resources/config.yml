@@ -10,3 +10,17 @@ server:
 redis:
   host: localhost
   port: 6379
+
+database:
+  host: "127.0.0.1"
+  port: 5432
+  database: "laboon"
+  username: "laboon"
+  password: "ALTERE_AQUI"
+
+  pool:
+    maximum-size: 10
+    minimum-idle: 2
+    connection-timeout: 5000
+    idle-timeout: 600000
+    max-lifetime: 1800000

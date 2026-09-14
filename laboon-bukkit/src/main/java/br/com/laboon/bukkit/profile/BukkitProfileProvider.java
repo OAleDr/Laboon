@@ -1,7 +1,7 @@
 package br.com.laboon.bukkit.profile;
 
 import br.com.laboon.core.account.Account;
-import br.com.laboon.core.account.AccountRepository;
+import br.com.laboon.core.account.repository.AccountRepository;
 import br.com.laboon.core.profile.GameCoinsRepository;
 import br.com.laboon.core.profile.PlayerProfile;
 import br.com.laboon.core.profile.StatisticsRepository;
@@ -61,7 +61,7 @@ public final class BukkitProfileProvider implements ProfileProvider {
     @Override
     public void save(PlayerProfile profile) {
 
-        accountRepository.save(profile.getAccount());
+        accountRepository.update(profile.getAccount());
 
         profile.saveAll();
     }

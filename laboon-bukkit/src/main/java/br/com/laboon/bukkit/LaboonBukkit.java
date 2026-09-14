@@ -29,11 +29,16 @@ import br.com.laboon.bukkit.profile.ProfileProvider;
 import br.com.laboon.bukkit.server.ServerHeartbeat;
 import br.com.laboon.bukkit.server.ServerRuntimeState;
 import br.com.laboon.core.account.AccountManager;
-import br.com.laboon.core.account.AccountRepository;
+import br.com.laboon.core.account.AccountService;
+import br.com.laboon.core.account.cache.AccountCache;
+import br.com.laboon.core.account.repository.AccountRepository;
+import br.com.laboon.core.account.repository.PostgreSqlAccountRepository;
 import br.com.laboon.core.command.CommandClass;
 import br.com.laboon.core.command.CommandLoader;
 import br.com.laboon.core.command.CommandProvider;
 import br.com.laboon.core.command.CommandScanner;
+import br.com.laboon.core.database.DatabaseConfig;
+import br.com.laboon.core.database.DatabaseManager;
 import br.com.laboon.core.friend.FriendManager;
 import br.com.laboon.core.language.LanguageBootstrap;
 import br.com.laboon.core.language.LanguageLocale;
@@ -56,15 +61,17 @@ public final class LaboonBukkit extends JavaPlugin {
 
     private static LaboonBukkit instance;
 
+    private DatabaseManager databaseManager;
+    private AccountCache accountCache;
+    private AccountRepository accountRepository;
+    private AccountManager accountManager;
+
     private RedisManager redisManager;
     private MessageBus messageBus;
     private ServerHeartbeat heartbeat;
 
     private GuiManager guiManager;
     private AnvilGuiManager anvilGuiManager;
-
-    private AccountRepository accountRepository;
-    private AccountManager accountManager;
 
     private StatisticsRepository statisticsRepository;
     private GameCoinsRepository gameCoinsRepository;
@@ -114,6 +121,22 @@ public final class LaboonBukkit extends JavaPlugin {
 
         connectRedis();
 
+        if (
+                redisManager == null
+                        || !redisManager.isConnected()
+        ) {
+            return;
+        }
+
+        connectDatabase();
+
+        if (
+                databaseManager == null
+                        || !databaseManager.isConnected()
+        ) {
+            return;
+        }
+
         if (redisManager == null || !redisManager.isConnected()) {
             return;
         }
@@ -155,6 +178,68 @@ public final class LaboonBukkit extends JavaPlugin {
         getLogger().info("Servidor configurado: " + serverConfig.getServerName() + " [" + serverConfig.getServerType() + "/" + serverConfig.getServerRole() + "]");
     }
 
+    private void connectDatabase() {
+
+        getLogger().info(
+                "Conectando ao PostgreSQL..."
+        );
+
+        DatabaseConfig config =
+                new DatabaseConfig(
+                        "127.0.0.1",
+                        5432,
+                        "laboon",
+                        "laboon",
+                        "SENHA",
+
+                        10,
+                        2,
+
+                        5000,
+                        600000,
+                        1800000
+                );
+
+        databaseManager =
+                new DatabaseManager(config);
+
+        if (!databaseManager.isConnected()) {
+
+            getLogger().severe(
+                    "Não foi possível conectar ao PostgreSQL!"
+            );
+
+            getServer()
+                    .getPluginManager()
+                    .disablePlugin(this);
+
+            return;
+        }
+
+        accountRepository =
+                new PostgreSqlAccountRepository(
+                        databaseManager.getDataSource()
+                );
+
+        accountCache =
+                new AccountCache(
+                        redisManager
+                );
+
+        AccountService service =
+                new AccountService(
+                        accountRepository,
+                        accountCache
+                );
+
+        accountManager =
+                new AccountManager(service);
+
+        getLogger().info(
+                "PostgreSQL conectado com sucesso!"
+        );
+    }
+
     private void connectRedis() {
 
         getLogger().info("Conectando ao Redis...");
@@ -172,9 +257,7 @@ public final class LaboonBukkit extends JavaPlugin {
             return;
         }
 
-        accountRepository = new AccountRepository(redisManager);
-
-        accountManager = new AccountManager(new br.com.laboon.core.account.AccountService(redisManager));
+        accountManager = new AccountManager(new AccountService(accountRepository, accountCache));
 
         statisticsRepository = new StatisticsRepository(redisManager);
 
