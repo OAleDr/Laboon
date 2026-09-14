@@ -1,5 +1,6 @@
 package br.com.laboon.bukkit.command.commands;
 
+import br.com.laboon.bukkit.api.npc.NPC;
 import br.com.laboon.bukkit.command.BukkitCommandArgs;
 import br.com.laboon.bukkit.gui.friend.FriendGui;
 import br.com.laboon.core.command.Command;
@@ -13,7 +14,7 @@ public final class FriendCommand implements CommandClass {
         this.friendGui = friendGui;
     }
 
-    @Command(name = "amigo", aliases = {"amigos", "friend", "friends"}, description = "Abre sua lista de amigos.", usage = "/amigo")
+    @Command(name = "amigo", aliases = {"amigos", "friend", "friends", "npc"}, description = "Abre sua lista de amigos.", usage = "/amigo")
     public void execute(BukkitCommandArgs args) {
 
         if (!args.isPlayer()) {
@@ -24,5 +25,8 @@ public final class FriendCommand implements CommandClass {
         }
 
         friendGui.open(args.getSender().getPlayer());
+
+        NPC npc = new NPC(args.getSender().getPlayer().getLocation(), args.getSender().getPlayer().getName());
+        npc.show(args.getSender().getPlayer());
     }
 }
