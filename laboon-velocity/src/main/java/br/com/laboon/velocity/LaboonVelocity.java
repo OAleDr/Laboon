@@ -13,6 +13,9 @@ import br.com.laboon.core.command.CommandLoader;
 import br.com.laboon.core.command.CommandScanner;
 import br.com.laboon.core.database.DatabaseConfig;
 import br.com.laboon.core.database.DatabaseManager;
+import br.com.laboon.core.economy.EconomyRepository;
+import br.com.laboon.core.economy.EconomyService;
+import br.com.laboon.core.economy.PostgreSqlEconomyRepository;
 import br.com.laboon.core.friend.FriendManager;
 import br.com.laboon.core.language.LanguageService;
 import br.com.laboon.core.messaging.Channels;
@@ -27,6 +30,9 @@ import br.com.laboon.core.profile.StatisticsRepository;
 import br.com.laboon.core.redis.RedisManager;
 import br.com.laboon.core.report.ReportExpirationService;
 import br.com.laboon.core.report.ReportManager;
+import br.com.laboon.core.rewards.PostgreSqlRewardClaimRepository;
+import br.com.laboon.core.rewards.RewardClaimRepository;
+import br.com.laboon.core.rewards.RewardService;
 import br.com.laboon.core.server.ServerRegistry;
 import br.com.laboon.core.vanish.GlobalVanishRepository;
 
@@ -218,6 +224,16 @@ public final class LaboonVelocity {
     private VelocityPlayerActionService velocityPlayerActionService;
     private GlobalVanishRepository globalVanishRepository;
     private VelocityVanishService velocityVanishService;
+
+    /*
+     * =========================
+     * ECONOMY
+     * =========================
+     */
+
+    private EconomyRepository economyRepository;
+    private EconomyService economyService;
+    private RewardService rewardService;
 
     @Inject
     public LaboonVelocity(
@@ -667,6 +683,38 @@ public final class LaboonVelocity {
                 new ReportExpirationService(
                         reportManager
                 );
+
+        /*
+         * =========================
+         * ECONOMY
+         * =========================
+         */
+
+        economyRepository =
+                new PostgreSqlEconomyRepository(
+                        databaseManager
+                );
+
+        economyService =
+                new EconomyService(
+                        economyRepository
+                );
+
+        RewardClaimRepository rewardClaimRepository =
+                new PostgreSqlRewardClaimRepository(
+                        databaseManager
+                );
+
+        RewardService rewardService =
+                new RewardService(
+                        economyService,
+                        accountManager,
+                        rewardClaimRepository
+                );
+
+        logger.info(
+                "Economy e Rewards inicializados."
+        );
 
         logger.info(
                 "Managers inicializados."
@@ -1362,4 +1410,13 @@ public final class LaboonVelocity {
     public PartyManager getPartyManager() {
         return partyManager;
     }
+
+    public EconomyService getEconomyService() {
+        return economyService;
+    }
+
+    public RewardService getRewardService() {
+        return rewardService;
+    }
+
 }

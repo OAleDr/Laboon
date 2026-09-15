@@ -13,10 +13,24 @@ public final class RewardService {
 
     private final EconomyService economyService;
     private final AccountManager accountManager;
+    private final RewardClaimRepository claimRepository;
 
     public RewardService(
             EconomyService economyService,
             AccountManager accountManager
+    ) {
+
+        this(
+                economyService,
+                accountManager,
+                null
+        );
+    }
+
+    public RewardService(
+            EconomyService economyService,
+            AccountManager accountManager,
+            RewardClaimRepository claimRepository
     ) {
 
         if (economyService == null) {
@@ -33,29 +47,134 @@ public final class RewardService {
 
         this.economyService = economyService;
         this.accountManager = accountManager;
+        this.claimRepository = claimRepository;
     }
 
+    /**
+     * API original.
+     */
     public RewardResult give(
             UUID playerUuid,
             Reward reward,
             RewardSource source
     ) {
 
+        return applyReward(
+                playerUuid,
+                reward,
+                source
+        );
+    }
+
+    /**
+     * API idempotente.
+     */
+    public RewardResult give(
+            UUID playerUuid,
+            Reward reward,
+            RewardSource source,
+            String rewardId
+    ) {
+
         if (playerUuid == null) {
+
             return RewardResult.failure(
                     RewardResult.Status.INVALID_PLAYER
             );
         }
 
         if (reward == null || reward.isEmpty()) {
+
             return RewardResult.failure(
                     RewardResult.Status.EMPTY_REWARD
             );
         }
 
-        if (source == null) {
-            source = RewardSource.OTHER;
+        if (
+                rewardId == null
+                        || rewardId.isBlank()
+                        || rewardId.length() > 128
+        ) {
+
+            return RewardResult.failure(
+                    RewardResult.Status.INVALID_REWARD_ID
+            );
         }
+
+        if (claimRepository == null) {
+
+            throw new IllegalStateException(
+                    "RewardClaimRepository não foi configurado."
+            );
+        }
+
+        RewardSource safeSource =
+                source == null
+                        ? RewardSource.OTHER
+                        : source;
+
+        boolean claimed =
+                claimRepository.tryClaim(
+                        rewardId,
+                        playerUuid,
+                        safeSource
+                );
+
+        if (!claimed) {
+
+            return RewardResult.alreadyClaimed();
+        }
+
+        try {
+
+            return applyReward(
+                    playerUuid,
+                    reward,
+                    safeSource
+            );
+
+        } catch (RuntimeException exception) {
+
+            /*
+             * Atenção:
+             *
+             * Nesta arquitetura atual o claim já foi gravado
+             * antes da aplicação da recompensa.
+             *
+             * Por isso esta API ainda não deve ser considerada
+             * atomicamente transacional entre claim + XP + economy.
+             *
+             * A etapa seguinte será mover o claim para a mesma
+             * Connection usada pela transação da recompensa.
+             */
+            throw exception;
+        }
+    }
+
+    private RewardResult applyReward(
+            UUID playerUuid,
+            Reward reward,
+            RewardSource source
+    ) {
+
+        if (playerUuid == null) {
+
+            return RewardResult.failure(
+                    RewardResult.Status.INVALID_PLAYER
+            );
+        }
+
+        if (reward == null || reward.isEmpty()) {
+
+            return RewardResult.failure(
+                    RewardResult.Status.EMPTY_REWARD
+            );
+        }
+
+        RewardSource safeSource =
+                source == null
+                        ? RewardSource.OTHER
+                        : source;
 
         List<Reward> applied =
                 new ArrayList<>();
@@ -73,7 +192,7 @@ public final class RewardService {
                             playerUuid,
                             EconomyCurrency.COINS,
                             entry.getAmount(),
-                            source
+                            safeSource
                     );
 
                     break;
@@ -84,7 +203,7 @@ public final class RewardService {
                             playerUuid,
                             EconomyCurrency.TOKENS,
                             entry.getAmount(),
-                            source
+                            safeSource
                     );
 
                     break;
@@ -99,23 +218,23 @@ public final class RewardService {
                     break;
 
                 case COSMETIC:
+
                     /*
-                     * Será implementado quando
-                     * o sistema de Cosmetics existir.
+                     * Futuro sistema de Cosmetics.
                      */
                     break;
 
                 case TITLE:
+
                     /*
-                     * Será implementado quando
-                     * o sistema de Identity existir.
+                     * Futuro sistema de Identity.
                      */
                     break;
 
                 case ITEM:
+
                     /*
-                     * Item será responsabilidade
-                     * do Bukkit futuramente.
+                     * Futuramente tratado no Bukkit.
                      */
                     break;
             }
@@ -142,6 +261,22 @@ public final class RewardService {
         );
     }
 
+    public RewardResult giveCoins(
+            UUID playerUuid,
+            long amount,
+            RewardSource source,
+            String rewardId
+    ) {
+
+        return give(
+                playerUuid,
+                new Reward()
+                        .addCoins(amount),
+                source,
+                rewardId
+        );
+    }
+
     public RewardResult giveTokens(
             UUID playerUuid,
             long amount,
@@ -153,6 +288,22 @@ public final class RewardService {
                 new Reward()
                         .addTokens(amount),
                 source
+        );
+    }
+
+    public RewardResult giveTokens(
+            UUID playerUuid,
+            long amount,
+            RewardSource source,
+            String rewardId
+    ) {
+
+        return give(
+                playerUuid,
+                new Reward()
+                        .addTokens(amount),
+                source,
+                rewardId
         );
     }
 
@@ -170,6 +321,22 @@ public final class RewardService {
         );
     }
 
+    public RewardResult giveExperience(
+            UUID playerUuid,
+            long amount,
+            RewardSource source,
+            String rewardId
+    ) {
+
+        return give(
+                playerUuid,
+                new Reward()
+                        .addExperience(amount),
+                source,
+                rewardId
+        );
+    }
+
     private void applyEconomyReward(
             UUID playerUuid,
             EconomyCurrency currency,
@@ -182,7 +349,10 @@ public final class RewardService {
                         playerUuid,
                         currency,
                         amount,
-                        "reward:" + source.name().toLowerCase(),
+                        "reward:"
+                                + source
+                                .name()
+                                .toLowerCase(),
                         null
                 );
 
@@ -205,7 +375,9 @@ public final class RewardService {
     ) {
 
         var account =
-                accountManager.get(playerUuid);
+                accountManager.get(
+                        playerUuid
+                );
 
         if (account == null) {
 

@@ -8,8 +8,15 @@ public final class RewardResult {
     public enum Status {
 
         SUCCESS,
+
+        ALREADY_CLAIMED,
+
         INVALID_PLAYER,
+
         EMPTY_REWARD,
+
+        INVALID_REWARD_ID,
+
         FAILED
     }
 
@@ -22,7 +29,13 @@ public final class RewardResult {
     ) {
 
         this.status = status;
-        this.rewards = rewards;
+
+        this.rewards =
+                rewards == null
+                        ? Collections.emptyList()
+                        : Collections.unmodifiableList(
+                        rewards
+                );
     }
 
     public static RewardResult success(
@@ -32,6 +45,14 @@ public final class RewardResult {
         return new RewardResult(
                 Status.SUCCESS,
                 rewards
+        );
+    }
+
+    public static RewardResult alreadyClaimed() {
+
+        return new RewardResult(
+                Status.ALREADY_CLAIMED,
+                Collections.emptyList()
         );
     }
 
@@ -55,5 +76,9 @@ public final class RewardResult {
 
     public boolean isSuccess() {
         return status == Status.SUCCESS;
+    }
+
+    public boolean isAlreadyClaimed() {
+        return status == Status.ALREADY_CLAIMED;
     }
 }

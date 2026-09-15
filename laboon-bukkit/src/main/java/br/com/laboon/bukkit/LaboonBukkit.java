@@ -50,6 +50,9 @@ import br.com.laboon.core.command.CommandProvider;
 import br.com.laboon.core.command.CommandScanner;
 import br.com.laboon.core.database.DatabaseConfig;
 import br.com.laboon.core.database.DatabaseManager;
+import br.com.laboon.core.economy.EconomyRepository;
+import br.com.laboon.core.economy.EconomyService;
+import br.com.laboon.core.economy.PostgreSqlEconomyRepository;
 import br.com.laboon.core.friend.FriendManager;
 import br.com.laboon.core.language.LanguageBootstrap;
 import br.com.laboon.core.language.LanguageLocale;
@@ -63,6 +66,9 @@ import br.com.laboon.core.profile.StatisticsRepository;
 import br.com.laboon.core.redis.RedisManager;
 import br.com.laboon.core.report.ReportManager;
 
+import br.com.laboon.core.rewards.PostgreSqlRewardClaimRepository;
+import br.com.laboon.core.rewards.RewardClaimRepository;
+import br.com.laboon.core.rewards.RewardService;
 import br.com.laboon.core.vanish.GlobalVanishRepository;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -224,6 +230,16 @@ public final class LaboonBukkit extends JavaPlugin {
     private GlobalVanishRepository globalVanishRepository;
     private VanishService vanishService;
     private VanishPlayerView vanishPlayerView;
+
+    /*
+     * =========================
+     * ECONOMY
+     * =========================
+     */
+
+    private EconomyRepository economyRepository;
+    private EconomyService economyService;
+    private RewardService rewardService;
 
     /*
      * =========================
@@ -654,6 +670,38 @@ public final class LaboonBukkit extends JavaPlugin {
 
         skinService =
                 new SkinService(this);
+
+        /*
+         * =========================
+         * ECONOMY
+         * =========================
+         */
+
+        economyRepository =
+                new PostgreSqlEconomyRepository(
+                        databaseManager
+                );
+
+        economyService =
+                new EconomyService(
+                        economyRepository
+                );
+
+        RewardClaimRepository rewardClaimRepository =
+                new PostgreSqlRewardClaimRepository(
+                        databaseManager
+                );
+
+        RewardService rewardService =
+                new RewardService(
+                        economyService,
+                        accountManager,
+                        rewardClaimRepository
+                );
+
+        getLogger().info(
+                "Economy e Rewards inicializados."
+        );
 
         getLogger().info(
                 "Repositories e serviços de dados inicializados."
@@ -1442,5 +1490,13 @@ public final class LaboonBukkit extends JavaPlugin {
     getPunishmentRepository() {
 
         return punishmentRepository;
+    }
+
+    public EconomyService getEconomyService() {
+        return economyService;
+    }
+
+    public RewardService getRewardService() {
+        return rewardService;
     }
 }
