@@ -1,6 +1,7 @@
 package br.com.laboon.core.account;
 
 import br.com.laboon.core.account.group.Group;
+import br.com.laboon.core.account.repository.AccountRepository;
 
 import java.time.Duration;
 import java.time.Instant;

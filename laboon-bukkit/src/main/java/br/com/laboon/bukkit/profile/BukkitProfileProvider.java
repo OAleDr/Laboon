@@ -61,7 +61,7 @@ public final class BukkitProfileProvider implements ProfileProvider {
     @Override
     public void save(PlayerProfile profile) {
 
-        accountRepository.update(profile.getAccount());
+        accountRepository.save(profile.getAccount());
 
         profile.saveAll();
     }

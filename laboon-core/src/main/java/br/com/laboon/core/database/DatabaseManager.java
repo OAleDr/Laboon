@@ -5,7 +5,10 @@ import com.zaxxer.hikari.HikariDataSource;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
+import java.sql.Driver;
+import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.ServiceLoader;
 
 public final class DatabaseManager {
 
@@ -16,6 +19,43 @@ public final class DatabaseManager {
         if (config == null) {
             throw new IllegalArgumentException(
                     "DatabaseConfig não pode ser nulo."
+            );
+        }
+
+        System.out.println("===== LABOON DATABASE DEBUG =====");
+        System.out.println("JDBC URL: " + config.getJdbcUrl());
+
+        try {
+            Class<?> driverClass = Class.forName("org.postgresql.Driver");
+
+            System.out.println(
+                    "PostgreSQL Driver encontrado: "
+                            + driverClass.getProtectionDomain()
+                            .getCodeSource()
+                            .getLocation()
+            );
+
+            Driver driver = (Driver) driverClass
+                    .getDeclaredConstructor()
+                    .newInstance();
+
+            DriverManager.registerDriver(
+                    new DriverShim(driver)
+            );
+
+            System.out.println("PostgreSQL Driver registrado com sucesso.");
+
+        } catch (Exception exception) {
+
+            System.err.println(
+                    "ERRO AO CARREGAR POSTGRESQL DRIVER"
+            );
+
+            exception.printStackTrace();
+
+            throw new IllegalStateException(
+                    "PostgreSQL JDBC Driver não pôde ser carregado.",
+                    exception
             );
         }
 
@@ -48,7 +88,6 @@ public final class DatabaseManager {
     }
 
     public boolean isConnected() {
-
         try (Connection connection = getConnection()) {
             return connection.isValid(2);
         } catch (SQLException exception) {
@@ -58,5 +97,60 @@ public final class DatabaseManager {
 
     public void close() {
         dataSource.close();
+    }
+
+    private static final class DriverShim implements Driver {
+
+        private final Driver delegate;
+
+        private DriverShim(Driver delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public Connection connect(
+                String url,
+                java.util.Properties info
+        ) throws SQLException {
+            return delegate.connect(url, info);
+        }
+
+        @Override
+        public boolean acceptsURL(String url)
+                throws SQLException {
+            return delegate.acceptsURL(url);
+        }
+
+        @Override
+        public java.sql.DriverPropertyInfo[] getPropertyInfo(
+                String url,
+                java.util.Properties info
+        ) throws SQLException {
+            return delegate.getPropertyInfo(url, info);
+        }
+
+        @Override
+        public int getMajorVersion() {
+            return delegate.getMajorVersion();
+        }
+
+        @Override
+        public int getMinorVersion() {
+            return delegate.getMinorVersion();
+        }
+
+        @Override
+        public boolean jdbcCompliant() {
+            return delegate.jdbcCompliant();
+        }
+
+        @Override
+        public java.util.logging.Logger getParentLogger() {
+            try {
+                return delegate.getParentLogger();
+            } catch (Exception exception) {
+                return java.util.logging.Logger.getGlobal();
+            }
+        }
     }
 }

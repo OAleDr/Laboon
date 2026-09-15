@@ -1,282 +1,385 @@
 package br.com.laboon.core.account.repository;
 
 import br.com.laboon.core.account.Account;
-import br.com.laboon.core.account.AccountPreferences;
 import br.com.laboon.core.account.AccountType;
 import br.com.laboon.core.account.group.Group;
-import br.com.laboon.core.account.punishment.Ban;
-import br.com.laboon.core.account.punishment.Kick;
-import br.com.laboon.core.account.punishment.Mute;
-import br.com.laboon.core.account.punishment.PunishmentHistory;
-import br.com.laboon.core.language.LanguageLocale;
+import br.com.laboon.core.database.DatabaseManager;
 
-import javax.sql.DataSource;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.sql.Types;
 import java.time.Instant;
 import java.util.UUID;
 
-public final class PostgreSqlAccountRepository
-        implements AccountRepository {
+public final class PostgreSqlAccountRepository implements AccountRepository {
 
-    private final DataSource dataSource;
+    private final DatabaseManager database;
 
-    public PostgreSqlAccountRepository(DataSource dataSource) {
-
-        if (dataSource == null) {
-            throw new IllegalArgumentException(
-                    "DataSource não pode ser nulo."
-            );
-        }
-
-        this.dataSource = dataSource;
+    public PostgreSqlAccountRepository(DatabaseManager database) {
+        this.database = database;
     }
 
-    @Override
-    public Account findById(UUID uniqueId) {
+    /**
+     * Busca uma Account pelo UUID do Minecraft.
+     */
+    public Account findByUniqueId(UUID uniqueId) {
 
         if (uniqueId == null) {
             return null;
         }
 
-        String sql = """
+        final String sql = """
                 SELECT
-                    id,
-                    uuid,
-                    name,
-                    group_name,
-                    tag,
-                    experience,
-                    type,
-                    created_at,
-                    last_login,
-                    language,
-                    private_messages,
-                    friend_requests,
-                    server_join_messages
-                FROM accounts
-                WHERE uuid = ?
+                    "uniqueId",
+                    "name",
+                    "group",
+                    "tag",
+                    "experience",
+                    "type",
+                    "createdAt",
+                    "lastLogin"
+                FROM "accounts"
+                WHERE "uniqueId" = ?
                 """;
 
         try (
-                Connection connection = dataSource.getConnection();
+                Connection connection = database.getConnection();
                 PreparedStatement statement = connection.prepareStatement(sql)
         ) {
 
             statement.setObject(1, uniqueId);
 
-            try (ResultSet result = statement.executeQuery()) {
+            try (ResultSet resultSet = statement.executeQuery()) {
 
-                if (!result.next()) {
+                if (!resultSet.next()) {
                     return null;
                 }
 
-                Account account = mapAccount(result);
-
-                loadTemporaryGroups(connection, account);
-                loadPunishments(connection, account);
-
-                return account;
+                return mapAccount(resultSet);
             }
 
         } catch (SQLException exception) {
 
             throw new RuntimeException(
-                    "Erro ao carregar account " + uniqueId,
+                    "Erro ao buscar Account: " + uniqueId,
                     exception
             );
         }
     }
 
-    @Override
+    /**
+     * Compatibilidade com chamadas usando findById.
+     */
+    public Account findById(UUID uniqueId) {
+        return findByUniqueId(uniqueId);
+    }
+
+    /**
+     * Busca uma Account pelo nome.
+     */
     public Account findByName(String name) {
 
         if (name == null || name.isBlank()) {
             return null;
         }
 
-        String sql = """
+        final String sql = """
                 SELECT
-                    id,
-                    uuid,
-                    name,
-                    group_name,
-                    tag,
-                    experience,
-                    type,
-                    created_at,
-                    last_login,
-                    language,
-                    private_messages,
-                    friend_requests,
-                    server_join_messages
-                FROM accounts
-                WHERE LOWER(name) = LOWER(?)
+                    "uniqueId",
+                    "name",
+                    "group",
+                    "tag",
+                    "experience",
+                    "type",
+                    "createdAt",
+                    "lastLogin"
+                FROM "accounts"
+                WHERE LOWER("name") = LOWER(?)
                 LIMIT 1
                 """;
 
         try (
-                Connection connection = dataSource.getConnection();
+                Connection connection = database.getConnection();
                 PreparedStatement statement = connection.prepareStatement(sql)
         ) {
 
-            statement.setString(1, name.trim());
+            statement.setString(1, name);
 
-            try (ResultSet result = statement.executeQuery()) {
+            try (ResultSet resultSet = statement.executeQuery()) {
 
-                if (!result.next()) {
+                if (!resultSet.next()) {
                     return null;
                 }
 
-                Account account = mapAccount(result);
-
-                loadTemporaryGroups(connection, account);
-                loadPunishments(connection, account);
-
-                return account;
+                return mapAccount(resultSet);
             }
 
         } catch (SQLException exception) {
 
             throw new RuntimeException(
-                    "Erro ao buscar account pelo nome " + name,
+                    "Erro ao buscar Account pelo nome: " + name,
                     exception
             );
         }
     }
 
-    @Override
+    /**
+     * Verifica se a Account existe.
+     */
     public boolean exists(UUID uniqueId) {
 
         if (uniqueId == null) {
             return false;
         }
 
-        String sql = """
+        final String sql = """
                 SELECT 1
-                FROM accounts
-                WHERE uuid = ?
+                FROM "accounts"
+                WHERE "uniqueId" = ?
                 LIMIT 1
                 """;
 
         try (
-                Connection connection = dataSource.getConnection();
+                Connection connection = database.getConnection();
                 PreparedStatement statement = connection.prepareStatement(sql)
         ) {
 
             statement.setObject(1, uniqueId);
 
-            try (ResultSet result = statement.executeQuery()) {
-                return result.next();
+            try (ResultSet resultSet = statement.executeQuery()) {
+                return resultSet.next();
             }
 
         } catch (SQLException exception) {
 
             throw new RuntimeException(
-                    "Erro ao verificar existência da account.",
+                    "Erro ao verificar Account: " + uniqueId,
                     exception
             );
         }
     }
 
-    @Override
+    /**
+     * Insere uma nova Account.
+     */
     public void insert(Account account) {
 
-        String sql = """
-                INSERT INTO accounts (
-                    uuid,
-                    name,
-                    group_name,
-                    tag,
-                    experience,
-                    type,
-                    created_at,
-                    last_login,
-                    language,
-                    private_messages,
-                    friend_requests,
-                    server_join_messages
+        validateAccount(account);
+
+        final String sql = """
+                INSERT INTO "accounts" (
+                    "uniqueId",
+                    "name",
+                    "group",
+                    "tag",
+                    "experience",
+                    "type",
+                    "createdAt",
+                    "lastLogin"
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (
+                    ?,
+                    ?,
+                    ?::"Group",
+                    ?,
+                    ?,
+                    ?::"AccountType",
+                    ?,
+                    ?
+                )
                 """;
 
         try (
-                Connection connection = dataSource.getConnection();
+                Connection connection = database.getConnection();
                 PreparedStatement statement = connection.prepareStatement(sql)
         ) {
 
-            writeAccount(statement, account);
+            statement.setObject(1, account.getUniqueId());
+            statement.setString(2, account.getName());
+            statement.setString(3, account.getGroup().name());
+            statement.setString(4, account.getTag());
+            statement.setLong(5, account.getExperience());
+            statement.setString(6, account.getType().name());
+            statement.setTimestamp(
+                    7,
+                    Timestamp.from(account.getCreatedAt())
+            );
+
+            if (account.getLastLogin() == null) {
+                statement.setNull(8, Types.TIMESTAMP);
+            } else {
+                statement.setTimestamp(
+                        8,
+                        Timestamp.from(account.getLastLogin())
+                );
+            }
 
             statement.executeUpdate();
-
-            replaceTemporaryGroups(connection, account);
-            replacePunishments(connection, account);
 
         } catch (SQLException exception) {
 
             throw new RuntimeException(
-                    "Erro ao inserir account "
-                            + account.getUniqueId(),
+                    "Erro ao inserir Account: " + account.getUniqueId(),
                     exception
             );
         }
     }
 
-    @Override
+    /**
+     * Atualiza uma Account existente.
+     */
     public void update(Account account) {
 
-        String sql = """
-                UPDATE accounts
+        validateAccount(account);
+
+        final String sql = """
+                UPDATE "accounts"
                 SET
-                    name = ?,
-                    group_name = ?,
-                    tag = ?,
-                    experience = ?,
-                    type = ?,
-                    last_login = ?,
-                    language = ?,
-                    private_messages = ?,
-                    friend_requests = ?,
-                    server_join_messages = ?,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE uuid = ?
+                    "name" = ?,
+                    "group" = ?::"Group",
+                    "tag" = ?,
+                    "experience" = ?,
+                    "type" = ?::"AccountType",
+                    "lastLogin" = ?
+                WHERE "uniqueId" = ?
                 """;
 
         try (
-                Connection connection = dataSource.getConnection();
+                Connection connection = database.getConnection();
                 PreparedStatement statement = connection.prepareStatement(sql)
         ) {
 
-            writeUpdate(statement, account);
+            statement.setString(1, account.getName());
+            statement.setString(2, account.getGroup().name());
+            statement.setString(3, account.getTag());
+            statement.setLong(4, account.getExperience());
+            statement.setString(5, account.getType().name());
 
-            statement.executeUpdate();
+            if (account.getLastLogin() == null) {
+                statement.setNull(6, Types.TIMESTAMP);
+            } else {
+                statement.setTimestamp(
+                        6,
+                        Timestamp.from(account.getLastLogin())
+                );
+            }
 
-            replaceTemporaryGroups(connection, account);
-            replacePunishments(connection, account);
+            statement.setObject(7, account.getUniqueId());
+
+            int affectedRows = statement.executeUpdate();
+
+            if (affectedRows == 0) {
+                throw new IllegalStateException(
+                        "Account não encontrada para atualização: "
+                                + account.getUniqueId()
+                );
+            }
 
         } catch (SQLException exception) {
 
             throw new RuntimeException(
-                    "Erro ao atualizar account "
-                            + account.getUniqueId(),
+                    "Erro ao atualizar Account: " + account.getUniqueId(),
                     exception
             );
         }
     }
 
-    @Override
+    /**
+     * Salva a Account.
+     *
+     * Cria caso ainda não exista.
+     * Atualiza caso já exista.
+     */
+    public void save(Account account) {
+
+        validateAccount(account);
+
+        final String sql = """
+                INSERT INTO "accounts" (
+                    "uniqueId",
+                    "name",
+                    "group",
+                    "tag",
+                    "experience",
+                    "type",
+                    "createdAt",
+                    "lastLogin"
+                )
+                VALUES (
+                    ?,
+                    ?,
+                    ?::"Group",
+                    ?,
+                    ?,
+                    ?::"AccountType",
+                    ?,
+                    ?
+                )
+                ON CONFLICT ("uniqueId")
+                DO UPDATE SET
+                    "name" = EXCLUDED."name",
+                    "group" = EXCLUDED."group",
+                    "tag" = EXCLUDED."tag",
+                    "experience" = EXCLUDED."experience",
+                    "type" = EXCLUDED."type",
+                    "lastLogin" = EXCLUDED."lastLogin"
+                """;
+
+        try (
+                Connection connection = database.getConnection();
+                PreparedStatement statement = connection.prepareStatement(sql)
+        ) {
+
+            statement.setObject(1, account.getUniqueId());
+            statement.setString(2, account.getName());
+            statement.setString(3, account.getGroup().name());
+            statement.setString(4, account.getTag());
+            statement.setLong(5, account.getExperience());
+            statement.setString(6, account.getType().name());
+            statement.setTimestamp(
+                    7,
+                    Timestamp.from(account.getCreatedAt())
+            );
+
+            if (account.getLastLogin() == null) {
+                statement.setNull(8, Types.TIMESTAMP);
+            } else {
+                statement.setTimestamp(
+                        8,
+                        Timestamp.from(account.getLastLogin())
+                );
+            }
+
+            statement.executeUpdate();
+
+        } catch (SQLException exception) {
+
+            throw new RuntimeException(
+                    "Erro ao salvar Account: " + account.getUniqueId(),
+                    exception
+            );
+        }
+    }
+
+    /**
+     * Remove uma Account.
+     */
     public void delete(UUID uniqueId) {
 
         if (uniqueId == null) {
             return;
         }
 
-        String sql = """
-                DELETE FROM accounts
-                WHERE uuid = ?
+        final String sql = """
+                DELETE FROM "accounts"
+                WHERE "uniqueId" = ?
                 """;
 
         try (
-                Connection connection = dataSource.getConnection();
+                Connection connection = database.getConnection();
                 PreparedStatement statement = connection.prepareStatement(sql)
         ) {
 
@@ -286,433 +389,201 @@ public final class PostgreSqlAccountRepository
         } catch (SQLException exception) {
 
             throw new RuntimeException(
-                    "Erro ao remover account.",
+                    "Erro ao deletar Account: " + uniqueId,
                     exception
             );
         }
     }
 
-    private Account mapAccount(ResultSet result)
-            throws SQLException {
+    /**
+     * Atualiza somente o lastLogin.
+     */
+    public void updateLastLogin(UUID uniqueId, Instant lastLogin) {
 
-        UUID uuid = result.getObject(
-                "uuid",
-                UUID.class
-        );
+        if (uniqueId == null) {
+            return;
+        }
 
-        String name = result.getString("name");
+        final String sql = """
+                UPDATE "accounts"
+                SET "lastLogin" = ?
+                WHERE "uniqueId" = ?
+                """;
 
-        AccountType type;
+        try (
+                Connection connection = database.getConnection();
+                PreparedStatement statement = connection.prepareStatement(sql)
+        ) {
 
-        try {
-            type = AccountType.valueOf(
-                    result.getString("type")
+            if (lastLogin == null) {
+                statement.setNull(1, Types.TIMESTAMP);
+            } else {
+                statement.setTimestamp(
+                        1,
+                        Timestamp.from(lastLogin)
+                );
+            }
+
+            statement.setObject(2, uniqueId);
+
+            statement.executeUpdate();
+
+        } catch (SQLException exception) {
+
+            throw new RuntimeException(
+                    "Erro ao atualizar lastLogin: " + uniqueId,
+                    exception
             );
-        } catch (Exception exception) {
-            type = AccountType.ORIGINAL;
+        }
+    }
+
+    /**
+     * Cria uma Account padrão.
+     */
+    public Account create(UUID uniqueId, String name) {
+
+        if (uniqueId == null) {
+            throw new IllegalArgumentException(
+                    "uniqueId não pode ser null"
+            );
         }
 
-        Instant createdAt =
-                result.getTimestamp("created_at")
-                        .toInstant();
-
-        Timestamp lastLoginTimestamp =
-                result.getTimestamp("last_login");
-
-        Instant lastLogin =
-                lastLoginTimestamp == null
-                        ? null
-                        : lastLoginTimestamp.toInstant();
-
-        AccountPreferences preferences =
-                new AccountPreferences();
-
-        String language =
-                result.getString("language");
-
-        if (language != null && !language.isBlank()) {
-            preferences.setLanguage(LanguageLocale.fromCode(language));
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException(
+                    "name não pode ser vazio"
+            );
         }
-
-        preferences.setPrivateMessages(
-                result.getBoolean("private_messages")
-        );
-
-        preferences.setFriendRequests(
-                result.getBoolean("friend_requests")
-        );
-
-        preferences.setServerJoinMessages(
-                result.getBoolean("server_join_messages")
-        );
 
         Account account = new Account(
-                uuid,
-                name,
-                type,
-                createdAt,
-                lastLogin,
-                preferences
+                uniqueId,
+                name
         );
 
-        String groupName =
-                result.getString("group_name");
-
-        if (groupName != null) {
-
-            try {
-                account.setGroup(
-                        Group.valueOf(groupName)
-                );
-            } catch (IllegalArgumentException ignored) {
-            }
-        }
-
-        account.setTag(
-                result.getString("tag")
-        );
-
-        account.setExperience(
-                result.getLong("experience")
-        );
+        save(account);
 
         return account;
     }
 
-    private void writeAccount(
-            PreparedStatement statement,
-            Account account
-    ) throws SQLException {
+    /**
+     * Converte ResultSet para Account.
+     */
+    private Account mapAccount(ResultSet resultSet) throws SQLException {
 
-        AccountPreferences preferences =
-                account.getPreferences();
-
-        statement.setObject(
-                1,
-                account.getUniqueId()
+        UUID uniqueId = resultSet.getObject(
+                "uniqueId",
+                UUID.class
         );
 
-        statement.setString(
-                2,
-                account.getName()
+        String name = resultSet.getString("name");
+
+        Group group = parseGroup(
+                resultSet.getString("group")
         );
 
-        statement.setString(
-                3,
-                account.getGroup().name()
+        String tag = resultSet.getString("tag");
+
+        long experience = resultSet.getLong("experience");
+
+        AccountType type = parseAccountType(
+                resultSet.getString("type")
         );
 
-        statement.setString(
-                4,
-                account.getTag()
+        Timestamp createdTimestamp =
+                resultSet.getTimestamp("createdAt");
+
+        Timestamp lastLoginTimestamp =
+                resultSet.getTimestamp("lastLogin");
+
+        Instant createdAt =
+                createdTimestamp != null
+                        ? createdTimestamp.toInstant()
+                        : Instant.now();
+
+        Instant lastLogin =
+                lastLoginTimestamp != null
+                        ? lastLoginTimestamp.toInstant()
+                        : null;
+
+        Account account = new Account(
+                uniqueId,
+                name,
+                type,
+                createdAt,
+                lastLogin,
+                new br.com.laboon.core.account.AccountPreferences()
         );
 
-        statement.setLong(
-                5,
-                account.getExperience()
-        );
+        account.setGroup(group);
+        account.setTag(tag);
+        account.setExperience(experience);
 
-        statement.setString(
-                6,
-                account.getType().name()
-        );
-
-        statement.setTimestamp(
-                7,
-                Timestamp.from(account.getCreatedAt())
-        );
-
-        if (account.getLastLogin() == null) {
-            statement.setNull(8, Types.TIMESTAMP);
-        } else {
-            statement.setTimestamp(
-                    8,
-                    Timestamp.from(
-                            account.getLastLogin()
-                    )
-            );
-        }
-
-        statement.setString(
-                9,
-                preferences.getLanguage().getCode()
-        );
-
-        statement.setBoolean(
-                10,
-                preferences.isPrivateMessages()
-        );
-
-        statement.setBoolean(
-                11,
-                preferences.isFriendRequests()
-        );
-
-        statement.setBoolean(
-                12,
-                preferences.isServerJoinMessages()
-        );
+        return account;
     }
 
-    private void writeUpdate(
-            PreparedStatement statement,
-            Account account
-    ) throws SQLException {
+    private Group parseGroup(String value) {
 
-        AccountPreferences preferences =
-                account.getPreferences();
-
-        statement.setString(1, account.getName());
-        statement.setString(2, account.getGroup().name());
-        statement.setString(3, account.getTag());
-        statement.setLong(4, account.getExperience());
-        statement.setString(5, account.getType().name());
-
-        if (account.getLastLogin() == null) {
-            statement.setNull(6, Types.TIMESTAMP);
-        } else {
-            statement.setTimestamp(
-                    6,
-                    Timestamp.from(
-                            account.getLastLogin()
-                    )
-            );
+        if (value == null || value.isBlank()) {
+            return Group.DEFAULT;
         }
 
-        statement.setString(
-                7,
-                preferences.getLanguage().getCode()
-        );
-
-        statement.setBoolean(
-                8,
-                preferences.isPrivateMessages()
-        );
-
-        statement.setBoolean(
-                9,
-                preferences.isFriendRequests()
-        );
-
-        statement.setBoolean(
-                10,
-                preferences.isServerJoinMessages()
-        );
-
-        statement.setObject(
-                11,
-                account.getUniqueId()
-        );
-    }
-
-    private void loadTemporaryGroups(
-            Connection connection,
-            Account account
-    ) throws SQLException {
-
-        String sql = """
-                SELECT group_name, expires_at
-                FROM account_temporary_groups
-                WHERE account_id = (
-                    SELECT id
-                    FROM accounts
-                    WHERE uuid = ?
-                )
-                AND expires_at > CURRENT_TIMESTAMP
-                """;
-
-        try (
-                PreparedStatement statement =
-                        connection.prepareStatement(sql)
-        ) {
-
-            statement.setObject(
-                    1,
-                    account.getUniqueId()
-            );
-
-            try (ResultSet result =
-                         statement.executeQuery()) {
-
-                while (result.next()) {
-
-                    try {
-
-                        Group group =
-                                Group.valueOf(
-                                        result.getString(
-                                                "group_name"
-                                        )
-                                );
-
-                        Instant expiresAt =
-                                result.getTimestamp(
-                                        "expires_at"
-                                ).toInstant();
-
-                        account.setTemporaryGroup(
-                                group,
-                                expiresAt
-                        );
-
-                    } catch (IllegalArgumentException ignored) {
-                    }
-                }
-            }
+        try {
+            return Group.valueOf(value);
+        } catch (IllegalArgumentException exception) {
+            return Group.DEFAULT;
         }
     }
 
-    private void replaceTemporaryGroups(
-            Connection connection,
-            Account account
-    ) throws SQLException {
+    private AccountType parseAccountType(String value) {
 
-        String delete = """
-                DELETE FROM account_temporary_groups
-                WHERE account_id = (
-                    SELECT id
-                    FROM accounts
-                    WHERE uuid = ?
-                )
-                """;
-
-        try (
-                PreparedStatement statement =
-                        connection.prepareStatement(delete)
-        ) {
-
-            statement.setObject(
-                    1,
-                    account.getUniqueId()
-            );
-
-            statement.executeUpdate();
+        if (value == null || value.isBlank()) {
+            return AccountType.ORIGINAL;
         }
 
-        String insert = """
-                INSERT INTO account_temporary_groups (
-                    account_id,
-                    group_name,
-                    expires_at
-                )
-                SELECT
-                    id,
-                    ?,
-                    ?
-                FROM accounts
-                WHERE uuid = ?
-                """;
-
-        try (
-                PreparedStatement statement =
-                        connection.prepareStatement(insert)
-        ) {
-
-            for (var entry :
-                    account.getTemporaryGroups().entrySet()) {
-
-                statement.setString(
-                        1,
-                        entry.getKey().name()
-                );
-
-                statement.setTimestamp(
-                        2,
-                        Timestamp.from(
-                                entry.getValue()
-                        )
-                );
-
-                statement.setObject(
-                        3,
-                        account.getUniqueId()
-                );
-
-                statement.addBatch();
-            }
-
-            statement.executeBatch();
+        try {
+            return AccountType.valueOf(value);
+        } catch (IllegalArgumentException exception) {
+            return AccountType.ORIGINAL;
         }
     }
 
-    private void loadPunishments(
-            Connection connection,
-            Account account
-    ) throws SQLException {
+    private void validateAccount(Account account) {
 
-        String sql = """
-                SELECT *
-                FROM punishments
-                WHERE account_id = (
-                    SELECT id
-                    FROM accounts
-                    WHERE uuid = ?
-                )
-                ORDER BY created_at ASC
-                """;
-
-        try (
-                PreparedStatement statement =
-                        connection.prepareStatement(sql)
-        ) {
-
-            statement.setObject(
-                    1,
-                    account.getUniqueId()
+        if (account == null) {
+            throw new IllegalArgumentException(
+                    "account não pode ser null"
             );
-
-            try (ResultSet result =
-                         statement.executeQuery()) {
-
-                PunishmentHistory history =
-                        new PunishmentHistory();
-
-                /*
-                 * O carregamento individual das punições
-                 * será implementado aqui usando os
-                 * métodos restore() das classes existentes.
-                 */
-
-                while (result.next()) {
-
-                    // reservado para Ban/Mute/Kick
-                }
-
-                account.setPunishmentHistory(history);
-            }
-        }
-    }
-
-    private void replacePunishments(
-            Connection connection,
-            Account account
-    ) throws SQLException {
-
-        String delete = """
-                DELETE FROM punishments
-                WHERE account_id = (
-                    SELECT id
-                    FROM accounts
-                    WHERE uuid = ?
-                )
-                """;
-
-        try (
-                PreparedStatement statement =
-                        connection.prepareStatement(delete)
-        ) {
-
-            statement.setObject(
-                    1,
-                    account.getUniqueId()
-            );
-
-            statement.executeUpdate();
         }
 
-        /*
-         * Inserção das punições será feita usando
-         * as listas existentes no PunishmentHistory.
-         */
+        if (account.getUniqueId() == null) {
+            throw new IllegalArgumentException(
+                    "Account.uniqueId não pode ser null"
+            );
+        }
+
+        if (account.getName() == null ||
+                account.getName().isBlank()) {
+
+            throw new IllegalArgumentException(
+                    "Account.name não pode ser vazio"
+            );
+        }
+
+        if (account.getGroup() == null) {
+            throw new IllegalArgumentException(
+                    "Account.group não pode ser null"
+            );
+        }
+
+        if (account.getType() == null) {
+            throw new IllegalArgumentException(
+                    "Account.type não pode ser null"
+            );
+        }
+
+        if (account.getCreatedAt() == null) {
+            throw new IllegalArgumentException(
+                    "Account.createdAt não pode ser null"
+            );
+        }
     }
 }

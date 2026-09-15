@@ -19,9 +19,17 @@ dependencies {
         "com.velocitypowered:velocity-api:4.1.1"
     )
 
+    // Laboon Core
     implementation(project(":laboon-core"))
 
+    // Redis
     implementation("redis.clients:jedis:7.2.0")
+
+    // PostgreSQL
+    implementation("org.postgresql:postgresql:42.7.7")
+
+    // HikariCP
+    implementation("com.zaxxer:HikariCP:7.0.2")
 }
 
 tasks {

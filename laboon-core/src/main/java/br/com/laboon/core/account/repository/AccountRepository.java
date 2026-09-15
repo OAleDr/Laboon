@@ -10,11 +10,9 @@ public interface AccountRepository {
 
     Account findByName(String name);
 
+    void save(Account account);
+
     boolean exists(UUID uniqueId);
-
-    void insert(Account account);
-
-    void update(Account account);
 
     void delete(UUID uniqueId);
 }

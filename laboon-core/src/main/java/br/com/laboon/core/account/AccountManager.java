@@ -61,7 +61,7 @@ public final class AccountManager {
     }
 
     public void unload(Account account) {
-        service.unload(account);
+        service.save(account);
     }
 
     public void updateLastLogin(Account account) {

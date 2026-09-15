@@ -23,6 +23,10 @@ public final class VelocityAccountService {
 
     public Account load(Player player) {
 
+        if (player == null) {
+            return null;
+        }
+
         return accountManager.get(
                 player.getUniqueId()
         );
@@ -33,11 +37,24 @@ public final class VelocityAccountService {
             AuthenticationResult authentication
     ) {
 
-        Account account = accountManager.getOrCreate(
-                authentication.getUuid(),
-                authentication.getUsername(),
-                authentication.getType()
-        );
+        if (player == null) {
+            throw new IllegalArgumentException(
+                    "Player não pode ser nulo."
+            );
+        }
+
+        if (authentication == null) {
+            throw new IllegalArgumentException(
+                    "AuthenticationResult não pode ser nulo."
+            );
+        }
+
+        Account account =
+                accountManager.getOrCreate(
+                        authentication.getUuid(),
+                        authentication.getUsername(),
+                        authentication.getType()
+                );
 
         accountManager.updateLastLogin(account);
 
@@ -53,9 +70,14 @@ public final class VelocityAccountService {
             Player player
     ) {
 
-        var session = sessionManager.get(
-                player.getUniqueId()
-        );
+        if (player == null) {
+            return null;
+        }
+
+        var session =
+                sessionManager.get(
+                        player.getUniqueId()
+                );
 
         if (session == null) {
             return null;
@@ -70,6 +92,10 @@ public final class VelocityAccountService {
             Player player
     ) {
 
+        if (player == null) {
+            return false;
+        }
+
         return sessionManager.isLogged(
                 player.getUniqueId()
         );
@@ -78,6 +104,30 @@ public final class VelocityAccountService {
     public void logout(
             Player player
     ) {
+
+        if (player == null) {
+            return;
+        }
+
+        var session =
+                sessionManager.get(
+                        player.getUniqueId()
+                );
+
+        if (session != null) {
+
+            Account account =
+                    accountManager.get(
+                            session.getAccountUuid()
+                    );
+
+            if (account != null) {
+
+                accountManager.saveAndUnload(
+                        account
+                );
+            }
+        }
 
         sessionManager.remove(
                 player.getUniqueId()

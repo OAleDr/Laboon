@@ -15,7 +15,6 @@ public final class AccountService {
             AccountRepository repository,
             AccountCache cache
     ) {
-
         if (repository == null) {
             throw new IllegalArgumentException(
                     "AccountRepository não pode ser nulo."
@@ -38,30 +37,18 @@ public final class AccountService {
             return null;
         }
 
-        /*
-         * 1. Cache
-         */
-        Account cached =
-                cache.get(uniqueId);
+        Account cached = cache.get(uniqueId);
 
         if (cached != null) {
             return cached;
         }
 
-        /*
-         * 2. PostgreSQL
-         */
         Account account =
                 repository.findById(uniqueId);
 
-        if (account == null) {
-            return null;
+        if (account != null) {
+            cache.put(account);
         }
-
-        /*
-         * 3. Cache
-         */
-        cache.put(account);
 
         return account;
     }
@@ -72,26 +59,18 @@ public final class AccountService {
             return null;
         }
 
-        /*
-         * Primeiro tenta o índice Redis.
-         */
         UUID uuid =
                 cache.findUuidByName(name);
 
         if (uuid != null) {
 
-            Account cached =
-                    cache.get(uuid);
+            Account cached = cache.get(uuid);
 
             if (cached != null) {
                 return cached;
             }
         }
 
-        /*
-         * Redis não encontrou.
-         * PostgreSQL é a fonte oficial.
-         */
         Account account =
                 repository.findByName(name);
 
@@ -100,6 +79,28 @@ public final class AccountService {
         }
 
         return account;
+    }
+
+    public Account getOrCreateOriginal(
+            UUID uniqueId,
+            String name
+    ) {
+        return getOrCreate(
+                uniqueId,
+                name,
+                AccountType.ORIGINAL
+        );
+    }
+
+    public Account getOrCreateLaboon(
+            UUID uniqueId,
+            String name
+    ) {
+        return getOrCreate(
+                uniqueId,
+                name,
+                AccountType.LABOON
+        );
     }
 
     public Account getOrCreate(
@@ -116,7 +117,7 @@ public final class AccountService {
 
         if (name == null || name.isBlank()) {
             throw new IllegalArgumentException(
-                    "Nome da conta não pode ser vazio."
+                    "Nome da conta não pode ser nulo ou vazio."
             );
         }
 
@@ -126,34 +127,14 @@ public final class AccountService {
             );
         }
 
-        Account account =
-                find(uniqueId);
+        Account account = find(uniqueId);
 
         if (account != null) {
 
-            boolean changed = false;
+            account.setName(name);
+            account.setType(type);
 
-            if (!name.equals(account.getName())) {
-
-                account.setName(name);
-                changed = true;
-            }
-
-            if (account.getType() != type) {
-
-                account.setType(type);
-                changed = true;
-            }
-
-            account.setLastLogin(
-                    Instant.now()
-            );
-
-            if (changed || account.getLastLogin() != null) {
-                repository.update(account);
-            }
-
-            cache.put(account);
+            save(account);
 
             return account;
         }
@@ -164,15 +145,23 @@ public final class AccountService {
                         name,
                         type,
                         Instant.now(),
-                        Instant.now(),
+                        null,
                         new AccountPreferences()
                 );
 
-        repository.insert(account);
-
-        cache.put(account);
+        save(account);
 
         return account;
+    }
+
+    public void saveAndUnload(Account account) {
+
+        if (account == null) {
+            return;
+        }
+
+        repository.save(account);
+        cache.remove(account);
     }
 
     public void save(Account account) {
@@ -181,41 +170,21 @@ public final class AccountService {
             return;
         }
 
-        repository.update(account);
-
+        repository.save(account);
         cache.put(account);
     }
 
-    /**
-     * Persiste e remove do cache.
-     *
-     * Deve ser utilizado quando o jogador
-     * realmente deixar o servidor.
-     */
-    public void saveAndUnload(Account account) {
+    public void updateLastLogin(Account account) {
 
         if (account == null) {
             return;
         }
 
-        /*
-         * Primeiro salva no PostgreSQL.
-         */
-        repository.update(account);
+        account.setLastLogin(
+                Instant.now()
+        );
 
-        /*
-         * Somente depois remove do Redis.
-         */
-        cache.remove(account);
-    }
-
-    public void unload(Account account) {
-
-        if (account == null) {
-            return;
-        }
-
-        cache.remove(account);
+        save(account);
     }
 
     public boolean exists(UUID uniqueId) {
@@ -238,26 +207,14 @@ public final class AccountService {
         }
 
         Account account =
-                repository.findById(uniqueId);
+                cache.get(uniqueId);
 
         repository.delete(uniqueId);
 
         if (account != null) {
             cache.remove(account);
+        } else {
+            cache.remove(uniqueId, null);
         }
-    }
-
-    public void updateLastLogin(Account account) {
-
-        if (account == null) {
-            return;
-        }
-
-        account.setLastLogin(
-                Instant.now()
-        );
-
-        repository.update(account);
-        cache.put(account);
     }
 }

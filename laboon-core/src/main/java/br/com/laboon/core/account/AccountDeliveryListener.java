@@ -2,6 +2,7 @@ package br.com.laboon.core.account;
 
 import br.com.laboon.core.account.group.Group;
 import br.com.laboon.core.account.group.GroupUpdatePublisher;
+import br.com.laboon.core.account.repository.AccountRepository;
 import br.com.laboon.core.messaging.MessageBus;
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;

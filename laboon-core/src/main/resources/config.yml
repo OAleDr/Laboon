@@ -14,9 +14,9 @@ redis:
 database:
   host: "127.0.0.1"
   port: 5432
-  database: "laboon"
+  database: "laboon_web"
   username: "laboon"
-  password: "ALTERE_AQUI"
+  password: "laboon_dev_2026"
 
   pool:
     maximum-size: 10

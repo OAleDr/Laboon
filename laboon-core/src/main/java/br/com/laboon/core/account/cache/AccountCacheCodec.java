@@ -4,6 +4,7 @@ import br.com.laboon.core.account.Account;
 import br.com.laboon.core.account.AccountPreferences;
 import br.com.laboon.core.account.AccountType;
 import br.com.laboon.core.account.group.Group;
+import br.com.laboon.core.language.LanguageLocale;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 
@@ -154,9 +155,15 @@ public final class AccountCacheCodec {
                 String language =
                         json.get("language").getAsString();
 
-                preferences.setLanguage(
-                        preferences.getLanguage()
-                );
+                try {
+                    preferences.setLanguage(
+                            LanguageLocale.fromCode(language)
+                    );
+                } catch (IllegalArgumentException ignored) {
+                    preferences.setLanguage(
+                            LanguageLocale.ptBR()
+                    );
+                }
             }
 
             if (json.has("privateMessages")) {
