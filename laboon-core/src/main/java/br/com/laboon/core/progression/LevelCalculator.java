@@ -14,14 +14,23 @@ public final class LevelCalculator {
             int maxLevel
     ) {
         if (baseExperience <= 0L) {
-            throw new IllegalArgumentException("baseExperience deve ser maior que zero.");
+            throw new IllegalArgumentException(
+                    "baseExperience deve ser maior que zero."
+            );
         }
+
         if (linearIncrease < 0L || quadraticIncrease < 0L) {
-            throw new IllegalArgumentException("Incrementos não podem ser negativos.");
+            throw new IllegalArgumentException(
+                    "Incrementos não podem ser negativos."
+            );
         }
+
         if (maxLevel < 1) {
-            throw new IllegalArgumentException("maxLevel deve ser maior ou igual a 1.");
+            throw new IllegalArgumentException(
+                    "maxLevel deve ser maior ou igual a 1."
+            );
         }
+
         this.baseExperience = baseExperience;
         this.linearIncrease = linearIncrease;
         this.quadraticIncrease = quadraticIncrease;
@@ -29,45 +38,113 @@ public final class LevelCalculator {
     }
 
     public static LevelCalculator defaultCalculator() {
-        return new LevelCalculator(1000L, 250L, 25L, 1000);
+        return new LevelCalculator(
+                1000L,
+                250L,
+                25L,
+                1000
+        );
     }
 
-    public int levelFromExperience(long experience) {
+    public int levelFromExperience(
+            long experience
+    ) {
         if (experience <= 0L) {
             return 1;
         }
+
         int level = 1;
-        for (int next = 2; next <= maxLevel; next++) {
-            if (experience < requiredExperience(next)) {
+
+        for (
+                int next = 2;
+                next <= maxLevel;
+                next++
+        ) {
+            if (
+                    experience <
+                            requiredExperience(next)
+            ) {
                 break;
             }
+
             level = next;
         }
+
         return level;
     }
 
-    public long requiredExperience(int level) {
+    public long requiredExperience(
+            int level
+    ) {
         if (level <= 1) {
             return 0L;
         }
+
         if (level > maxLevel) {
             return Long.MAX_VALUE;
         }
+
         long n = level - 1L;
+
         try {
-            long linear = Math.multiplyExact(linearIncrease, n);
-            long quadratic = Math.multiplyExact(quadraticIncrease, Math.multiplyExact(n, n));
-            return Math.addExact(baseExperience, Math.addExact(linear, quadratic));
+            long linear =
+                    Math.multiplyExact(
+                            linearIncrease,
+                            n
+                    );
+
+            long square =
+                    Math.multiplyExact(
+                            n,
+                            n
+                    );
+
+            long quadratic =
+                    Math.multiplyExact(
+                            quadraticIncrease,
+                            square
+                    );
+
+            return Math.addExact(
+                    baseExperience,
+                    Math.addExact(
+                            linear,
+                            quadratic
+                    )
+            );
+
         } catch (ArithmeticException exception) {
             return Long.MAX_VALUE;
         }
     }
 
-    public long requiredExperienceForNextLevel(int currentLevel) {
+    public long requiredExperienceForNextLevel(
+            int currentLevel
+    ) {
         if (currentLevel >= maxLevel) {
             return Long.MAX_VALUE;
         }
-        return requiredExperience(currentLevel + 1);
+
+        return requiredExperience(
+                currentLevel + 1
+        );
+    }
+
+    public LevelDefinition definition(
+            int level
+    ) {
+        if (level < 1) {
+            level = 1;
+        }
+
+        if (level > maxLevel) {
+            level = maxLevel;
+        }
+
+        return new LevelDefinition(
+                level,
+                requiredExperience(level)
+        );
     }
 
     public int getMaxLevel() {

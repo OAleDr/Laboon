@@ -1,16 +1,15 @@
 package br.com.laboon.core.progression;
 
 public enum ProgressionGame {
+
     GLOBAL,
     BEDWARS,
     SKYWARS,
-    HG,
+    HUNGER_GAMES,
     KITPVP,
-    SUMO,
     BOXING,
+    SUMO,
     NODEBUFF,
-    BRIDGE,
-    BUILD_UHC,
-    FIREBALL,
-    CLASSIC
+    BUILDUHC,
+    BRIDGE
 }

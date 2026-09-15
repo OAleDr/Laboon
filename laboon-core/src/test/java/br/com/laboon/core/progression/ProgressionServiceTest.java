@@ -7,11 +7,13 @@ import org.junit.jupiter.api.Test;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class ProgressionServiceTest {
@@ -35,9 +37,7 @@ class ProgressionServiceTest {
                 accountManager.get(
                         eq(uuid)
                 )
-        ).thenReturn(
-                account
-        );
+        ).thenReturn(account);
 
         ProgressionRepository repository =
                 new InMemoryProgressionRepository();
@@ -83,6 +83,12 @@ class ProgressionServiceTest {
                 result
                         .getLevelsGained()
                         .get(0)
+        );
+
+        verify(
+                accountManager
+        ).save(
+                eq(account)
         );
     }
 
@@ -167,10 +173,111 @@ class ProgressionServiceTest {
         );
     }
 
+    @Test
+    void shouldNotifyLevelUp() {
+
+        UUID uuid =
+                UUID.randomUUID();
+
+        AccountManager accountManager =
+                mock(AccountManager.class);
+
+        when(
+                accountManager.get(
+                        eq(uuid)
+                )
+        ).thenReturn(
+                new Account(
+                        uuid,
+                        "TestPlayer"
+                )
+        );
+
+        ProgressionRepository repository =
+                new InMemoryProgressionRepository();
+
+        ProgressionService service =
+                new ProgressionService(
+                        accountManager,
+                        repository
+                );
+
+        AtomicInteger level =
+                new AtomicInteger();
+
+        service.addLevelUpListener(
+                (
+                        snapshot,
+                        newLevel
+                ) -> level.set(
+                        newLevel
+                )
+        );
+
+        service.addExperience(
+                uuid,
+                1300L,
+                ExperienceSource.GAME_WIN
+        );
+
+        assertEquals(
+                2,
+                level.get()
+        );
+    }
+
+    @Test
+    void shouldReturnHistory() {
+
+        UUID uuid =
+                UUID.randomUUID();
+
+        AccountManager accountManager =
+                mock(AccountManager.class);
+
+        when(
+                accountManager.get(
+                        eq(uuid)
+                )
+        ).thenReturn(
+                new Account(
+                        uuid,
+                        "TestPlayer"
+                )
+        );
+
+        InMemoryProgressionRepository repository =
+                new InMemoryProgressionRepository();
+
+        ProgressionService service =
+                new ProgressionService(
+                        accountManager,
+                        repository
+                );
+
+        service.addExperience(
+                uuid,
+                100L,
+                ExperienceSource.GAME_WIN
+        );
+
+        assertEquals(
+                1,
+                service.getHistory(
+                        uuid,
+                        ProgressionGame.GLOBAL,
+                        10
+                ).size()
+        );
+    }
+
     private static final class InMemoryProgressionRepository
             implements ProgressionRepository {
 
         private final Map<String, Long> values =
+                new HashMap<>();
+
+        private final Map<UUID, ProgressionXpEntry> history =
                 new HashMap<>();
 
         @Override
@@ -178,7 +285,6 @@ class ProgressionServiceTest {
                 UUID playerUuid,
                 ProgressionGame game
         ) {
-
             return values.getOrDefault(
                     key(
                             playerUuid,
@@ -194,7 +300,6 @@ class ProgressionServiceTest {
                 ProgressionGame game,
                 long experience
         ) {
-
             values.put(
                     key(
                             playerUuid,
@@ -210,7 +315,6 @@ class ProgressionServiceTest {
                 ProgressionGame game,
                 long amount
         ) {
-
             values.merge(
                     key(
                             playerUuid,
@@ -221,11 +325,39 @@ class ProgressionServiceTest {
             );
         }
 
+        @Override
+        public void saveHistory(
+                ProgressionXpEntry entry
+        ) {
+            history.put(
+                    entry.id(),
+                    entry
+            );
+        }
+
+        @Override
+        public java.util.List<ProgressionXpEntry> getHistory(
+                UUID playerUuid,
+                ProgressionGame game,
+                int limit
+        ) {
+            return history.values()
+                    .stream()
+                    .filter(
+                            entry ->
+                                    entry.playerUuid()
+                                            .equals(playerUuid)
+                                            && entry.game()
+                                            == game
+                    )
+                    .limit(limit)
+                    .toList();
+        }
+
         private String key(
                 UUID uuid,
                 ProgressionGame game
         ) {
-
             return uuid
                     + ":"
                     + game.name();

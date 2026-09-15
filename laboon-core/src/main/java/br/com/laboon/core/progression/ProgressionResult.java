@@ -6,11 +6,12 @@ import java.util.List;
 public final class ProgressionResult {
 
     public enum Status {
+
         SUCCESS,
         NO_CHANGE,
         INVALID_PLAYER,
         INVALID_AMOUNT,
-        ACCOUNT_NOT_FOUND,
+        INVALID_GAME,
         FAILED
     }
 
@@ -25,26 +26,44 @@ public final class ProgressionResult {
     ) {
         this.status = status;
         this.snapshot = snapshot;
-        this.levelsGained = levelsGained == null
-                ? Collections.emptyList()
-                : List.copyOf(levelsGained);
+
+        this.levelsGained =
+                levelsGained == null
+                        ? Collections.emptyList()
+                        : Collections.unmodifiableList(
+                                levelsGained
+                        );
     }
 
     public static ProgressionResult success(
             ProgressionSnapshot snapshot,
             List<Integer> levelsGained
     ) {
-        return new ProgressionResult(Status.SUCCESS, snapshot, levelsGained);
+        return new ProgressionResult(
+                Status.SUCCESS,
+                snapshot,
+                levelsGained
+        );
     }
 
     public static ProgressionResult noChange(
             ProgressionSnapshot snapshot
     ) {
-        return new ProgressionResult(Status.NO_CHANGE, snapshot, List.of());
+        return new ProgressionResult(
+                Status.NO_CHANGE,
+                snapshot,
+                Collections.emptyList()
+        );
     }
 
-    public static ProgressionResult failure(Status status) {
-        return new ProgressionResult(status, null, List.of());
+    public static ProgressionResult failure(
+            Status status
+    ) {
+        return new ProgressionResult(
+                status,
+                null,
+                Collections.emptyList()
+        );
     }
 
     public Status getStatus() {
@@ -60,10 +79,10 @@ public final class ProgressionResult {
     }
 
     public boolean isSuccess() {
-        return status == Status.SUCCESS || status == Status.NO_CHANGE;
+        return status == Status.SUCCESS;
     }
 
-    public boolean hasLevelUp() {
-        return snapshot != null && snapshot.isLevelUp();
+    public boolean isNoChange() {
+        return status == Status.NO_CHANGE;
     }
 }

@@ -11,7 +11,7 @@ public final class ProgressionSnapshot {
     private final int previousLevel;
     private final boolean levelUp;
     private final long experienceIntoLevel;
-    private final long experienceRequiredForNextLevel;
+    private final long experienceForNextLevel;
 
     public ProgressionSnapshot(
             UUID playerUuid,
@@ -21,7 +21,7 @@ public final class ProgressionSnapshot {
             int previousLevel,
             boolean levelUp,
             long experienceIntoLevel,
-            long experienceRequiredForNextLevel
+            long experienceForNextLevel
     ) {
         this.playerUuid = playerUuid;
         this.game = game;
@@ -30,7 +30,7 @@ public final class ProgressionSnapshot {
         this.previousLevel = previousLevel;
         this.levelUp = levelUp;
         this.experienceIntoLevel = experienceIntoLevel;
-        this.experienceRequiredForNextLevel = experienceRequiredForNextLevel;
+        this.experienceForNextLevel = experienceForNextLevel;
     }
 
     public UUID getPlayerUuid() {
@@ -61,26 +61,7 @@ public final class ProgressionSnapshot {
         return experienceIntoLevel;
     }
 
-    public long getExperienceRequiredForNextLevel() {
-        return experienceRequiredForNextLevel;
-    }
-
-    public double getProgressPercent() {
-        if (experienceRequiredForNextLevel == Long.MAX_VALUE) {
-            return 100.0D;
-        }
-        long totalSpan = experienceRequiredForNextLevel - experienceRequiredForCurrentLevel();
-        if (totalSpan <= 0L) {
-            return 100.0D;
-        }
-        double percent = (double) experienceIntoLevel / (double) totalSpan * 100.0D;
-        return Math.max(0.0D, Math.min(100.0D, percent));
-    }
-
-    private long experienceRequiredForCurrentLevel() {
-        if (level <= 1) {
-            return 0L;
-        }
-        return 0L;
+    public long getExperienceForNextLevel() {
+        return experienceForNextLevel;
     }
 }
