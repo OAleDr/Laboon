@@ -4,8 +4,10 @@ import br.com.laboon.core.account.group.Group;
 import br.com.laboon.core.account.group.GroupUpdatePublisher;
 import br.com.laboon.core.account.repository.AccountRepository;
 import br.com.laboon.core.messaging.MessageBus;
+
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
+
 import org.slf4j.Logger;
 
 import java.time.Duration;
@@ -13,55 +15,96 @@ import java.util.UUID;
 
 public final class AccountDeliveryListener {
 
-    public static final String CHANNEL = "laboon:minecraft:delivery";
+    public static final String CHANNEL =
+            "laboon:minecraft:delivery";
 
     private final Logger logger;
+
     private final AccountRepository accountRepository;
+
     private final TemporaryGroupService temporaryGroupService;
+
     private final GroupUpdatePublisher groupUpdatePublisher;
 
-    private final Gson gson = new Gson();
+    private final Gson gson =
+            new Gson();
 
-    public AccountDeliveryListener(Logger logger, AccountRepository accountRepository, TemporaryGroupService temporaryGroupService, GroupUpdatePublisher groupUpdatePublisher) {
+    public AccountDeliveryListener(
+            Logger logger,
+            AccountRepository accountRepository,
+            TemporaryGroupService temporaryGroupService,
+            GroupUpdatePublisher groupUpdatePublisher
+    ) {
+
         this.logger = logger;
         this.accountRepository = accountRepository;
         this.temporaryGroupService = temporaryGroupService;
         this.groupUpdatePublisher = groupUpdatePublisher;
     }
 
-    public void register(MessageBus messageBus) {
+    public void register(
+            MessageBus messageBus
+    ) {
 
-        messageBus.subscribe(CHANNEL, this::handle);
+        if (messageBus == null) {
+            throw new IllegalArgumentException(
+                    "MessageBus não pode ser nulo."
+            );
+        }
 
-        logger.info("Listener de entregas do Minecraft iniciado.");
+        messageBus.subscribe(
+                CHANNEL,
+                this::handle
+        );
+
+        logger.info(
+                "Listener de entregas do Minecraft iniciado."
+        );
     }
 
-    private void handle(String channel, String message) {
+    private void handle(
+            String channel,
+            String message
+    ) {
 
         if (!CHANNEL.equals(channel)) {
             return;
         }
 
-        logger.info("Nova entrega recebida do Redis.");
+        if (message == null || message.isBlank()) {
 
-        logger.info("Payload: {}", message);
+            logger.warn(
+                    "Payload de entrega vazio."
+            );
+
+            return;
+        }
 
         AccountDeliveryPayload payload;
 
         try {
 
-            payload = gson.fromJson(message, AccountDeliveryPayload.class);
+            payload =
+                    gson.fromJson(
+                            message,
+                            AccountDeliveryPayload.class
+                    );
 
         } catch (JsonSyntaxException exception) {
 
-            logger.error("Payload de entrega inválido.", exception);
+            logger.error(
+                    "Payload de entrega inválido.",
+                    exception
+            );
 
             return;
         }
 
         if (payload == null) {
 
-            logger.error("Payload de entrega vazio.");
+            logger.error(
+                    "Payload de entrega vazio."
+            );
 
             return;
         }
@@ -69,104 +112,180 @@ public final class AccountDeliveryListener {
         process(payload);
     }
 
-    private void process(AccountDeliveryPayload payload) {
+    private void process(
+            AccountDeliveryPayload payload
+    ) {
 
-        logger.info("=================================");
+        logger.info(
+                "================================="
+        );
 
-        logger.info("PROCESSANDO ENTREGA MINECRAFT");
+        logger.info(
+                "PROCESSANDO ENTREGA MINECRAFT"
+        );
 
-        logger.info("=================================");
+        logger.info(
+                "================================="
+        );
 
-        logger.info("Delivery: {}", payload.deliveryId);
+        logger.info(
+                "Delivery: {}",
+                payload.deliveryId
+        );
 
-        logger.info("Pedido: {}", payload.orderId);
+        logger.info(
+                "Pedido: {}",
+                payload.orderId
+        );
 
-        logger.info("Minecraft UUID: {}", payload.minecraftUuid);
+        logger.info(
+                "Minecraft UUID: {}",
+                payload.minecraftUuid
+        );
 
-        logger.info("Produto: {}", payload.productName);
+        logger.info(
+                "Produto: {}",
+                payload.productName
+        );
 
-        logger.info("Slug: {}", payload.productSlug);
+        logger.info(
+                "Slug: {}",
+                payload.productSlug
+        );
 
         try {
 
-            UUID uuid = UUID.fromString(payload.minecraftUuid);
+            UUID uuid =
+                    UUID.fromString(
+                            payload.minecraftUuid
+                    );
 
-            Account account = accountRepository.findById(uuid);
+            Account account =
+                    accountRepository.findById(
+                            uuid
+                    );
 
             if (account == null) {
 
-                logger.warn("Conta Minecraft não encontrada para UUID {}.", uuid);
+                logger.warn(
+                        "Conta Minecraft não encontrada para UUID {}.",
+                        uuid
+                );
 
                 return;
             }
 
-            Group group = resolveGroup(payload.productSlug);
+            Group group =
+                    resolveGroup(
+                            payload.productSlug
+                    );
 
             if (group == null) {
 
-                logger.warn("Não foi possível identificar o grupo para o produto {}.", payload.productSlug);
+                logger.warn(
+                        "Não foi possível identificar o grupo para o produto {}.",
+                        payload.productSlug
+                );
 
                 return;
             }
 
-            Duration duration = resolveDuration(payload);
+            Duration duration =
+                    resolveDuration(
+                            payload
+                    );
 
-            logger.info("Grupo identificado: {}", group.name());
+            logger.info(
+                    "Grupo identificado: {}",
+                    group.name()
+            );
 
-            logger.info("Duração: {}", duration);
+            logger.info(
+                    "Duração: {}",
+                    duration
+            );
 
-            temporaryGroupService.setTemporaryGroup(account, group, duration);
+            temporaryGroupService.setTemporaryGroup(
+                    account,
+                    group,
+                    duration
+            );
 
-            groupUpdatePublisher.publish(account);
+            groupUpdatePublisher.publish(
+                    account
+            );
 
-            logger.info("Grupo {} aplicado com sucesso para {}.", group.name(), uuid);
+            logger.info(
+                    "Grupo {} aplicado com sucesso para {}.",
+                    group.name(),
+                    uuid
+            );
 
-            logger.info("Atualização de grupo publicada.");
+            logger.info(
+                    "Atualização de grupo publicada."
+            );
 
-            logger.info("=================================");
+            logger.info(
+                    "================================="
+            );
 
         } catch (IllegalArgumentException exception) {
 
-            logger.error("UUID inválido na entrega: {}", payload.minecraftUuid, exception);
+            logger.error(
+                    "UUID inválido na entrega: {}",
+                    payload.minecraftUuid,
+                    exception
+            );
 
         } catch (Exception exception) {
 
-            logger.error("Erro ao processar entrega {}.", payload.deliveryId, exception);
+            logger.error(
+                    "Erro ao processar entrega {}.",
+                    payload.deliveryId,
+                    exception
+            );
         }
     }
 
-    private Group resolveGroup(String productSlug) {
+    private Group resolveGroup(
+            String productSlug
+    ) {
 
         if (productSlug == null) {
             return null;
         }
 
-        return switch (productSlug.toLowerCase()) {
+        return switch (
+                productSlug
+                        .trim()
+                        .toLowerCase()
+                ) {
 
-            case "legendplus", "legend+" -> Group.LEGENDPLUS;
+            case "legendplus", "legend+" ->
+                    Group.LEGENDPLUS;
 
-            case "legend" -> Group.LEGEND;
+            case "legend" ->
+                    Group.LEGEND;
 
-            case "explorerplus", "explorer+" -> Group.EXPLORERPLUS;
+            case "explorerplus", "explorer+" ->
+                    Group.EXPLORERPLUS;
 
-            case "explorer" -> Group.EXPLORER;
+            case "explorer" ->
+                    Group.EXPLORER;
 
-            default -> null;
+            default ->
+                    null;
         };
     }
 
-    private Duration resolveDuration(AccountDeliveryPayload payload) {
+    private Duration resolveDuration(
+            AccountDeliveryPayload payload
+    ) {
 
         /*
-         * TEMPORÁRIO:
-         *
-         * A duração definitiva deverá vir
-         * da configuração do produto.
-         *
-         * Por enquanto usamos 30 dias
-         * para testar o fluxo completo.
+         * Temporário enquanto o produto ainda
+         * não possui configuração própria.
          */
-
         return Duration.ofDays(30);
     }
 

@@ -5,7 +5,10 @@ import br.com.laboon.core.account.cache.AccountCache;
 import br.com.laboon.core.account.group.GroupUpdatePublisher;
 import br.com.laboon.core.account.punishment.PunishmentService;
 import br.com.laboon.core.account.repository.AccountRepository;
+import br.com.laboon.core.account.repository.PostgreSqlAccountPreferencesRepository;
 import br.com.laboon.core.account.repository.PostgreSqlAccountRepository;
+import br.com.laboon.core.account.repository.PostgreSqlPunishmentRepository;
+import br.com.laboon.core.account.repository.PostgreSqlTemporaryGroupRepository;
 import br.com.laboon.core.command.CommandLoader;
 import br.com.laboon.core.command.CommandScanner;
 import br.com.laboon.core.database.DatabaseConfig;
@@ -133,8 +136,13 @@ public final class LaboonVelocity {
 
     private AccountService accountService;
     private AccountManager accountManager;
+
     private AccountRepository accountRepository;
     private AccountCache accountCache;
+
+    private PostgreSqlAccountPreferencesRepository accountPreferencesRepository;
+    private PostgreSqlTemporaryGroupRepository temporaryGroupRepository;
+    private PostgreSqlPunishmentRepository punishmentRepository;
 
     private AccountSessionManager accountSessionManager;
     private MojangProfileService mojangProfileService;
@@ -339,21 +347,63 @@ public final class LaboonVelocity {
             );
         }
 
+        /*
+         * =========================
+         * REPOSITORIES
+         * =========================
+         */
+
         accountRepository =
                 new PostgreSqlAccountRepository(
                         databaseManager
                 );
+
+        accountPreferencesRepository =
+                new PostgreSqlAccountPreferencesRepository(
+                        databaseManager
+                );
+
+        temporaryGroupRepository =
+                new PostgreSqlTemporaryGroupRepository(
+                        databaseManager
+                );
+
+        punishmentRepository =
+                new PostgreSqlPunishmentRepository(
+                        databaseManager
+                );
+
+        /*
+         * =========================
+         * CACHE
+         * =========================
+         */
 
         accountCache =
                 new AccountCache(
                         redisManager
                 );
 
+        /*
+         * =========================
+         * ACCOUNT SERVICE
+         * =========================
+         */
+
         accountService =
                 new AccountService(
                         accountRepository,
-                        accountCache
+                        accountCache,
+                        accountPreferencesRepository,
+                        temporaryGroupRepository,
+                        punishmentRepository
                 );
+
+        /*
+         * =========================
+         * ACCOUNT MANAGER
+         * =========================
+         */
 
         accountManager =
                 new AccountManager(
@@ -362,6 +412,10 @@ public final class LaboonVelocity {
 
         logger.info(
                 "PostgreSQL conectado com sucesso!"
+        );
+
+        logger.info(
+                "Sistema de Accounts inicializado com PostgreSQL + Redis."
         );
     }
 
@@ -500,7 +554,8 @@ public final class LaboonVelocity {
 
         punishmentService =
                 new PunishmentService(
-                        accountManager
+                        accountManager,
+                        punishmentRepository
                 );
 
         /*
@@ -1070,6 +1125,10 @@ public final class LaboonVelocity {
         accountManager = null;
         accountRepository = null;
         accountCache = null;
+
+        accountPreferencesRepository = null;
+        temporaryGroupRepository = null;
+        punishmentRepository = null;
 
         logger.info(
                 "Laboon encerrado."

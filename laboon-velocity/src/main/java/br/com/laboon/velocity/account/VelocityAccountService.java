@@ -17,6 +17,18 @@ public final class VelocityAccountService {
             AccountSessionManager sessionManager
     ) {
 
+        if (accountManager == null) {
+            throw new IllegalArgumentException(
+                    "AccountManager não pode ser nulo."
+            );
+        }
+
+        if (sessionManager == null) {
+            throw new IllegalArgumentException(
+                    "AccountSessionManager não pode ser nulo."
+            );
+        }
+
         this.accountManager = accountManager;
         this.sessionManager = sessionManager;
     }
@@ -56,7 +68,9 @@ public final class VelocityAccountService {
                         authentication.getType()
                 );
 
-        accountManager.updateLastLogin(account);
+        accountManager.updateLastLogin(
+                account
+        );
 
         sessionManager.create(
                 player.getUniqueId(),
@@ -123,6 +137,11 @@ public final class VelocityAccountService {
 
             if (account != null) {
 
+                /*
+                 * PostgreSQL
+                 *      ↓
+                 * Redis REMOVE
+                 */
                 accountManager.saveAndUnload(
                         account
                 );

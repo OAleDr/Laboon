@@ -33,8 +33,13 @@ import br.com.laboon.bukkit.server.ServerRuntimeState;
 import br.com.laboon.core.account.AccountManager;
 import br.com.laboon.core.account.AccountService;
 import br.com.laboon.core.account.cache.AccountCache;
+
 import br.com.laboon.core.account.repository.AccountRepository;
+import br.com.laboon.core.account.repository.PostgreSqlAccountPreferencesRepository;
 import br.com.laboon.core.account.repository.PostgreSqlAccountRepository;
+import br.com.laboon.core.account.repository.PostgreSqlPunishmentRepository;
+import br.com.laboon.core.account.repository.PostgreSqlTemporaryGroupRepository;
+
 import br.com.laboon.core.command.CommandClass;
 import br.com.laboon.core.command.CommandLoader;
 import br.com.laboon.core.command.CommandProvider;
@@ -66,13 +71,22 @@ public final class LaboonBukkit extends JavaPlugin {
 
     /*
      * =========================
-     * BANCO / CACHE
+     * DATABASE / CACHE
      * =========================
      */
 
     private DatabaseManager databaseManager;
+
     private AccountRepository accountRepository;
+
+    private PostgreSqlAccountPreferencesRepository accountPreferencesRepository;
+
+    private PostgreSqlTemporaryGroupRepository temporaryGroupRepository;
+
+    private PostgreSqlPunishmentRepository punishmentRepository;
+
     private AccountCache accountCache;
+
     private AccountManager accountManager;
 
     /*
@@ -82,16 +96,19 @@ public final class LaboonBukkit extends JavaPlugin {
      */
 
     private RedisManager redisManager;
+
     private MessageBus messageBus;
 
     /*
      * =========================
-     * SERVIDOR
+     * SERVER
      * =========================
      */
 
     private ServerHeartbeat heartbeat;
+
     private volatile ServerRuntimeState serverRuntimeState;
+
     private ServerConfig serverConfig;
 
     /*
@@ -101,6 +118,7 @@ public final class LaboonBukkit extends JavaPlugin {
      */
 
     private GuiManager guiManager;
+
     private AnvilGuiManager anvilGuiManager;
 
     /*
@@ -110,8 +128,11 @@ public final class LaboonBukkit extends JavaPlugin {
      */
 
     private StatisticsRepository statisticsRepository;
+
     private GameCoinsRepository gameCoinsRepository;
+
     private ProfileProvider profileProvider;
+
     private ProfileListener profileListener;
 
     /*
@@ -121,6 +142,7 @@ public final class LaboonBukkit extends JavaPlugin {
      */
 
     private DisplayManager displayManager;
+
     private DisplayListener tabListener;
 
     /*
@@ -162,6 +184,7 @@ public final class LaboonBukkit extends JavaPlugin {
      */
 
     private ReportManager reportManager;
+
     private ReportListGui reportListGui;
 
     /*
@@ -171,6 +194,7 @@ public final class LaboonBukkit extends JavaPlugin {
      */
 
     private FriendManager friendManager;
+
     private FriendGui friendGui;
 
     /*
@@ -180,7 +204,9 @@ public final class LaboonBukkit extends JavaPlugin {
      */
 
     private HologramListener hologramListener;
+
     private TitleAPI titleAPI;
+
     private SkinService skinService;
 
     /*
@@ -194,75 +220,120 @@ public final class LaboonBukkit extends JavaPlugin {
 
         instance = this;
 
-        getLogger().info("=================================");
-        getLogger().info("          LABOON BUKKIT");
-        getLogger().info("=================================");
+        getLogger().info(
+                "================================="
+        );
+
+        getLogger().info(
+                "          LABOON BUKKIT"
+        );
+
+        getLogger().info(
+                "================================="
+        );
 
         /*
-         * Configuração padrão
+         * =========================
+         * CONFIG
+         * =========================
          */
+
         saveDefaultConfig();
 
         /*
-         * Servidor
+         * =========================
+         * SERVER
+         * =========================
          */
+
         loadServerConfig();
 
         /*
-         * Redis
+         * =========================
+         * REDIS
+         * =========================
          */
+
         if (!connectRedis()) {
+
             disablePlugin(
                     "Redis não está disponível. Plugin será desativado."
             );
+
             return;
         }
 
         /*
-         * PostgreSQL
+         * =========================
+         * POSTGRESQL
+         * =========================
          */
+
         if (!connectDatabase()) {
+
             disablePlugin(
                     "PostgreSQL não está disponível. Plugin será desativado."
             );
+
             return;
         }
 
         /*
-         * Componentes dependentes das conexões
+         * =========================
+         * REPOSITORIES
+         * =========================
          */
+
         setupRepositories();
 
         /*
-         * Linguagem
+         * =========================
+         * LANGUAGE
+         * =========================
          */
+
         setupLanguage();
 
         /*
-         * Messaging / Profile / Display / Group
+         * =========================
+         * MESSAGING
+         * =========================
          */
+
         setupMessaging();
 
         /*
-         * Listeners
+         * =========================
+         * LISTENERS
+         * =========================
          */
+
         registerListeners();
 
         /*
-         * Commands
+         * =========================
+         * COMMANDS
+         * =========================
          */
+
         registerCommands();
 
         /*
-         * Bukkit APIs
+         * =========================
+         * BUKKIT APIS
+         * =========================
          */
+
         CooldownAPI.initialize(this);
 
         startHologramAPI();
 
         /*
-         * Heartbeat
+         * =========================
+         * HEARTBEAT
+         * =========================
          */
+
         startHeartbeat();
 
         if (tabListener != null) {
@@ -274,8 +345,11 @@ public final class LaboonBukkit extends JavaPlugin {
         }
 
         /*
-         * Action Items
+         * =========================
+         * ACTION ITEMS
+         * =========================
          */
+
         ActionItemStack.init(this);
 
         getLogger().info(
@@ -432,73 +506,136 @@ public final class LaboonBukkit extends JavaPlugin {
     private void setupRepositories() {
 
         /*
-         * PostgreSQL Repository
+         * =========================
+         * ACCOUNT
+         * =========================
          */
+
         accountRepository =
                 new PostgreSqlAccountRepository(
                         databaseManager
                 );
 
         /*
-         * Redis Cache
+         * =========================
+         * ACCOUNT PREFERENCES
+         * =========================
          */
+
+        accountPreferencesRepository =
+                new PostgreSqlAccountPreferencesRepository(
+                        databaseManager
+                );
+
+        /*
+         * =========================
+         * TEMPORARY GROUPS
+         * =========================
+         */
+
+        temporaryGroupRepository =
+                new PostgreSqlTemporaryGroupRepository(
+                        databaseManager
+                );
+
+        /*
+         * =========================
+         * PUNISHMENTS
+         * =========================
+         */
+
+        punishmentRepository =
+                new PostgreSqlPunishmentRepository(
+                        databaseManager
+                );
+
+        /*
+         * =========================
+         * REDIS CACHE
+         * =========================
+         */
+
         accountCache =
                 new AccountCache(
                         redisManager
                 );
 
         /*
-         * Account Service
+         * =========================
+         * ACCOUNT SERVICE
+         * =========================
          */
+
         AccountService accountService =
                 new AccountService(
                         accountRepository,
-                        accountCache
+                        accountCache,
+                        accountPreferencesRepository,
+                        temporaryGroupRepository,
+                        punishmentRepository
                 );
 
         /*
-         * Account Manager
+         * =========================
+         * ACCOUNT MANAGER
+         * =========================
          */
+
         accountManager =
                 new AccountManager(
                         accountService
                 );
 
         /*
-         * Statistics
+         * =========================
+         * STATISTICS
+         * =========================
          */
+
         statisticsRepository =
                 new StatisticsRepository(
                         redisManager
                 );
 
         /*
-         * Game Coins
+         * =========================
+         * GAME COINS
+         * =========================
          */
+
         gameCoinsRepository =
                 new GameCoinsRepository(
                         redisManager
                 );
 
         /*
-         * Reports
+         * =========================
+         * REPORTS
+         * =========================
          */
+
         reportManager =
                 new ReportManager(
                         redisManager
                 );
 
         /*
-         * Friends
+         * =========================
+         * FRIENDS
+         * =========================
          */
+
         friendManager =
                 new FriendManager(
                         redisManager
                 );
 
         /*
-         * Skin
+         * =========================
+         * SKIN
+         * =========================
          */
+
         skinService =
                 new SkinService(this);
 
@@ -596,8 +733,11 @@ public final class LaboonBukkit extends JavaPlugin {
                 );
 
         /*
-         * Profile Provider
+         * =========================
+         * PROFILE PROVIDER
+         * =========================
          */
+
         profileProvider =
                 new BukkitProfileProvider(
                         accountRepository,
@@ -606,8 +746,11 @@ public final class LaboonBukkit extends JavaPlugin {
                 );
 
         /*
-         * Display
+         * =========================
+         * DISPLAY
+         * =========================
          */
+
         displayManager =
                 new DisplayManager(
                         profileProvider,
@@ -615,8 +758,11 @@ public final class LaboonBukkit extends JavaPlugin {
                 );
 
         /*
-         * Group Update
+         * =========================
+         * GROUP UPDATE
+         * =========================
          */
+
         groupUpdateListener =
                 new GroupUpdateListener(
                         this,
@@ -643,6 +789,7 @@ public final class LaboonBukkit extends JavaPlugin {
         /*
          * GUI
          */
+
         guiManager =
                 new GuiManager();
 
@@ -676,6 +823,7 @@ public final class LaboonBukkit extends JavaPlugin {
         /*
          * Reports
          */
+
         reportListGui =
                 new ReportListGui(
                         guiManager,
@@ -686,6 +834,7 @@ public final class LaboonBukkit extends JavaPlugin {
         /*
          * Profile
          */
+
         profileListener =
                 new ProfileListener(
                         this,
@@ -703,6 +852,7 @@ public final class LaboonBukkit extends JavaPlugin {
         /*
          * Display
          */
+
         tabListener =
                 new DisplayListener(
                         this,
@@ -719,6 +869,7 @@ public final class LaboonBukkit extends JavaPlugin {
         /*
          * Chat
          */
+
         chatFormatter =
                 new ChatFormatter(
                         profileProvider
@@ -737,8 +888,8 @@ public final class LaboonBukkit extends JavaPlugin {
         /*
          * Punishment
          */
-        PunishmentChatListener
-                punishmentChatListener =
+
+        PunishmentChatListener punishmentChatListener =
                 new PunishmentChatListener(
                         profileProvider
                 );
@@ -753,6 +904,7 @@ public final class LaboonBukkit extends JavaPlugin {
         /*
          * Hologram
          */
+
         hologramListener =
                 new HologramListener(
                         this
@@ -768,6 +920,7 @@ public final class LaboonBukkit extends JavaPlugin {
         /*
          * NPC
          */
+
         getServer()
                 .getPluginManager()
                 .registerEvents(
@@ -778,6 +931,7 @@ public final class LaboonBukkit extends JavaPlugin {
         /*
          * Title
          */
+
         titleAPI =
                 new TitleAPI();
 
@@ -791,6 +945,7 @@ public final class LaboonBukkit extends JavaPlugin {
         /*
          * Item Click
          */
+
         getServer()
                 .getPluginManager()
                 .registerEvents(
@@ -919,6 +1074,12 @@ public final class LaboonBukkit extends JavaPlugin {
                 .disablePlugin(this);
     }
 
+    /*
+     * =========================
+     * DISABLE
+     * =========================
+     */
+
     @Override
     public void onDisable() {
 
@@ -927,12 +1088,19 @@ public final class LaboonBukkit extends JavaPlugin {
         );
 
         /*
-         * Hologram
+         * =========================
+         * HOLOGRAM
+         * =========================
          */
+
         if (hologramListener != null) {
+
             try {
+
                 hologramListener.stop();
+
             } catch (Exception exception) {
+
                 getLogger().warning(
                         "Erro ao desligar Hologram API: "
                                 + exception.getMessage()
@@ -941,11 +1109,17 @@ public final class LaboonBukkit extends JavaPlugin {
         }
 
         /*
-         * Cooldown
+         * =========================
+         * COOLDOWN
+         * =========================
          */
+
         try {
+
             CooldownAPI.shutdown();
+
         } catch (Exception exception) {
+
             getLogger().warning(
                     "Erro ao desligar CooldownAPI: "
                             + exception.getMessage()
@@ -953,12 +1127,19 @@ public final class LaboonBukkit extends JavaPlugin {
         }
 
         /*
-         * Display
+         * =========================
+         * DISPLAY
+         * =========================
          */
+
         if (tabListener != null) {
+
             try {
+
                 tabListener.stop();
+
             } catch (Exception exception) {
+
                 getLogger().warning(
                         "Erro ao desligar DisplayListener: "
                                 + exception.getMessage()
@@ -967,29 +1148,41 @@ public final class LaboonBukkit extends JavaPlugin {
         }
 
         /*
-         * Profile
-         *
-         * Salva os dados antes de fechar
-         * o PostgreSQL / Redis.
+         * =========================
+         * PROFILES
+         * =========================
          */
+
         if (profileProvider != null) {
+
             try {
+
                 profileProvider.saveAll();
+
             } catch (Exception exception) {
+
                 getLogger().severe(
                         "Erro ao salvar profiles:"
                 );
+
                 exception.printStackTrace();
             }
         }
 
         /*
-         * Heartbeat
+         * =========================
+         * HEARTBEAT
+         * =========================
          */
+
         if (heartbeat != null) {
+
             try {
+
                 heartbeat.stop();
+
             } catch (Exception exception) {
+
                 getLogger().warning(
                         "Erro ao desligar heartbeat: "
                                 + exception.getMessage()
@@ -998,12 +1191,19 @@ public final class LaboonBukkit extends JavaPlugin {
         }
 
         /*
-         * Profile Listener
+         * =========================
+         * PROFILE LISTENER
+         * =========================
          */
+
         if (profileListener != null) {
+
             try {
+
                 profileListener.stop();
+
             } catch (Exception exception) {
+
                 getLogger().warning(
                         "Erro ao desligar ProfileListener: "
                                 + exception.getMessage()
@@ -1012,12 +1212,19 @@ public final class LaboonBukkit extends JavaPlugin {
         }
 
         /*
-         * Display Manager
+         * =========================
+         * DISPLAY MANAGER
+         * =========================
          */
+
         if (displayManager != null) {
+
             try {
+
                 displayManager.shutdown();
+
             } catch (Exception exception) {
+
                 getLogger().warning(
                         "Erro ao desligar DisplayManager: "
                                 + exception.getMessage()
@@ -1026,8 +1233,11 @@ public final class LaboonBukkit extends JavaPlugin {
         }
 
         /*
-         * PostgreSQL
+         * =========================
+         * POSTGRESQL
+         * =========================
          */
+
         if (databaseManager != null) {
 
             try {
@@ -1053,8 +1263,11 @@ public final class LaboonBukkit extends JavaPlugin {
         }
 
         /*
-         * Redis
+         * =========================
+         * REDIS
+         * =========================
          */
+
         if (redisManager != null) {
 
             try {
@@ -1080,13 +1293,25 @@ public final class LaboonBukkit extends JavaPlugin {
         }
 
         /*
-         * Limpa referências
+         * =========================
+         * CLEAR REFERENCES
+         * =========================
          */
+
         accountManager = null;
+
         accountRepository = null;
+
+        accountPreferencesRepository = null;
+
+        temporaryGroupRepository = null;
+
+        punishmentRepository = null;
+
         accountCache = null;
 
         databaseManager = null;
+
         redisManager = null;
 
         getLogger().info(
@@ -1160,5 +1385,23 @@ public final class LaboonBukkit extends JavaPlugin {
 
     public MessageBus getMessageBus() {
         return messageBus;
+    }
+
+    public PostgreSqlAccountPreferencesRepository
+    getAccountPreferencesRepository() {
+
+        return accountPreferencesRepository;
+    }
+
+    public PostgreSqlTemporaryGroupRepository
+    getTemporaryGroupRepository() {
+
+        return temporaryGroupRepository;
+    }
+
+    public PostgreSqlPunishmentRepository
+    getPunishmentRepository() {
+
+        return punishmentRepository;
     }
 }

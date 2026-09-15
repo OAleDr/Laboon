@@ -32,6 +32,12 @@ public final class PostgreSqlPunishmentRepository {
         this.database = database;
     }
 
+    /*
+     * ============================================================
+     * LOAD
+     * ============================================================
+     */
+
     public PunishmentHistory findHistory(
             UUID uniqueId
     ) {
@@ -43,20 +49,9 @@ public final class PostgreSqlPunishmentRepository {
             return history;
         }
 
-        loadBans(
-                uniqueId,
-                history
-        );
-
-        loadMutes(
-                uniqueId,
-                history
-        );
-
-        loadKicks(
-                uniqueId,
-                history
-        );
+        loadBans(uniqueId, history);
+        loadMutes(uniqueId, history);
+        loadKicks(uniqueId, history);
 
         return history;
     }
@@ -68,7 +63,6 @@ public final class PostgreSqlPunishmentRepository {
 
         final String sql = """
                 SELECT
-                    "type",
                     "punishedBy",
                     "punishedByUuid",
                     "ip",
@@ -87,18 +81,22 @@ public final class PostgreSqlPunishmentRepository {
                 """;
 
         try (
-                Connection connection = database.getConnection();
+                Connection connection =
+                        database.getConnection();
+
                 PreparedStatement statement =
                         connection.prepareStatement(sql)
         ) {
 
-            statement.setString(
+            statement.setObject(
                     1,
-                    uniqueId.toString()
+                    uniqueId
             );
 
-            try (ResultSet resultSet =
-                         statement.executeQuery()) {
+            try (
+                    ResultSet resultSet =
+                            statement.executeQuery()
+            ) {
 
                 while (resultSet.next()) {
 
@@ -128,7 +126,6 @@ public final class PostgreSqlPunishmentRepository {
 
         final String sql = """
                 SELECT
-                    "type",
                     "punishedBy",
                     "punishedByUuid",
                     "ip",
@@ -147,18 +144,22 @@ public final class PostgreSqlPunishmentRepository {
                 """;
 
         try (
-                Connection connection = database.getConnection();
+                Connection connection =
+                        database.getConnection();
+
                 PreparedStatement statement =
                         connection.prepareStatement(sql)
         ) {
 
-            statement.setString(
+            statement.setObject(
                     1,
-                    uniqueId.toString()
+                    uniqueId
             );
 
-            try (ResultSet resultSet =
-                         statement.executeQuery()) {
+            try (
+                    ResultSet resultSet =
+                            statement.executeQuery()
+            ) {
 
                 while (resultSet.next()) {
 
@@ -200,18 +201,22 @@ public final class PostgreSqlPunishmentRepository {
                 """;
 
         try (
-                Connection connection = database.getConnection();
+                Connection connection =
+                        database.getConnection();
+
                 PreparedStatement statement =
                         connection.prepareStatement(sql)
         ) {
 
-            statement.setString(
+            statement.setObject(
                     1,
-                    uniqueId.toString()
+                    uniqueId
             );
 
-            try (ResultSet resultSet =
-                         statement.executeQuery()) {
+            try (
+                    ResultSet resultSet =
+                            statement.executeQuery()
+            ) {
 
                 while (resultSet.next()) {
 
@@ -242,9 +247,11 @@ public final class PostgreSqlPunishmentRepository {
                             );
 
                     if (kickedBy == null
+                            || kickedBy.isBlank()
                             || kickedByUuid == null
                             || time == null
-                            || reason == null) {
+                            || reason == null
+                            || reason.isBlank()) {
 
                         continue;
                     }
@@ -264,6 +271,8 @@ public final class PostgreSqlPunishmentRepository {
                     } catch (
                             IllegalArgumentException ignored
                     ) {
+                        // Registro inválido não interrompe
+                        // o carregamento do restante do histórico.
                     }
                 }
             }
@@ -277,6 +286,12 @@ public final class PostgreSqlPunishmentRepository {
             );
         }
     }
+
+    /*
+     * ============================================================
+     * MAPPING
+     * ============================================================
+     */
 
     private Ban mapBan(
             ResultSet resultSet
@@ -304,9 +319,11 @@ public final class PostgreSqlPunishmentRepository {
                 );
 
         if (bannedBy == null
+                || bannedBy.isBlank()
                 || bannedByUuid == null
                 || banTime == null
-                || reason == null) {
+                || reason == null
+                || reason.isBlank()) {
 
             return null;
         }
@@ -347,16 +364,6 @@ public final class PostgreSqlPunishmentRepository {
                         "removedAt"
                 );
 
-        Instant expireInstant =
-                expire != null
-                        ? expire.toInstant()
-                        : null;
-
-        Instant removedAtInstant =
-                removedAt != null
-                        ? removedAt.toInstant()
-                        : null;
-
         try {
 
             return Ban.restore(
@@ -366,11 +373,15 @@ public final class PostgreSqlPunishmentRepository {
                     server,
                     banTime.toInstant(),
                     reason,
-                    expireInstant,
+                    expire != null
+                            ? expire.toInstant()
+                            : null,
                     removed,
                     removedBy,
                     removedByUuid,
-                    removedAtInstant
+                    removedAt != null
+                            ? removedAt.toInstant()
+                            : null
             );
 
         } catch (IllegalArgumentException exception) {
@@ -405,9 +416,11 @@ public final class PostgreSqlPunishmentRepository {
                 );
 
         if (mutedBy == null
+                || mutedBy.isBlank()
                 || mutedByUuid == null
                 || muteTime == null
-                || reason == null) {
+                || reason == null
+                || reason.isBlank()) {
 
             return null;
         }
@@ -474,13 +487,28 @@ public final class PostgreSqlPunishmentRepository {
         }
     }
 
+    /*
+     * ============================================================
+     * INSERT
+     * ============================================================
+     */
+
     public void saveBan(
             UUID uniqueId,
             Ban ban
     ) {
 
+        requireId(uniqueId);
+
+        if (ban == null) {
+            throw new IllegalArgumentException(
+                    "Ban não pode ser nulo."
+            );
+        }
+
         final String sql = """
                 INSERT INTO "punishments" (
+                    "id",
                     "uniqueId",
                     "type",
                     "punishedBy",
@@ -496,6 +524,7 @@ public final class PostgreSqlPunishmentRepository {
                     "removedAt"
                 )
                 VALUES (
+                    ?,
                     ?,
                     'BAN',
                     ?,
@@ -514,6 +543,7 @@ public final class PostgreSqlPunishmentRepository {
 
         savePunishment(
                 uniqueId,
+                UUID.randomUUID().toString(),
                 ban.getBannedBy(),
                 ban.getBannedByUniqueId(),
                 ban.getBannedIp(),
@@ -534,8 +564,17 @@ public final class PostgreSqlPunishmentRepository {
             Mute mute
     ) {
 
+        requireId(uniqueId);
+
+        if (mute == null) {
+            throw new IllegalArgumentException(
+                    "Mute não pode ser nulo."
+            );
+        }
+
         final String sql = """
                 INSERT INTO "punishments" (
+                    "id",
                     "uniqueId",
                     "type",
                     "punishedBy",
@@ -551,6 +590,7 @@ public final class PostgreSqlPunishmentRepository {
                     "removedAt"
                 )
                 VALUES (
+                    ?,
                     ?,
                     'MUTE',
                     ?,
@@ -569,6 +609,7 @@ public final class PostgreSqlPunishmentRepository {
 
         savePunishment(
                 uniqueId,
+                UUID.randomUUID().toString(),
                 mute.getMutedBy(),
                 mute.getMutedByUniqueId(),
                 mute.getMutedIp(),
@@ -589,8 +630,17 @@ public final class PostgreSqlPunishmentRepository {
             Kick kick
     ) {
 
+        requireId(uniqueId);
+
+        if (kick == null) {
+            throw new IllegalArgumentException(
+                    "Kick não pode ser nulo."
+            );
+        }
+
         final String sql = """
                 INSERT INTO "punishments" (
+                    "id",
                     "uniqueId",
                     "type",
                     "punishedBy",
@@ -600,6 +650,7 @@ public final class PostgreSqlPunishmentRepository {
                     "reason"
                 )
                 VALUES (
+                    ?,
                     ?,
                     'KICK',
                     ?,
@@ -611,40 +662,48 @@ public final class PostgreSqlPunishmentRepository {
                 """;
 
         try (
-                Connection connection = database.getConnection();
+                Connection connection =
+                        database.getConnection();
+
                 PreparedStatement statement =
                         connection.prepareStatement(sql)
         ) {
 
             statement.setString(
                     1,
-                    uniqueId.toString()
+                    UUID.randomUUID().toString()
             );
 
-            statement.setString(
+            statement.setObject(
                     2,
-                    kick.getKickedBy()
+                    uniqueId
             );
 
             statement.setString(
                     3,
-                    kick.getKickedByUniqueId().toString()
+                    kick.getKickedBy()
             );
 
             statement.setString(
                     4,
+                    kick.getKickedByUniqueId().toString()
+            );
+
+            setNullableString(
+                    statement,
+                    5,
                     kick.getServer()
             );
 
             statement.setTimestamp(
-                    5,
+                    6,
                     Timestamp.from(
                             kick.getTime()
                     )
             );
 
             statement.setString(
-                    6,
+                    7,
                     kick.getReason()
             );
 
@@ -659,8 +718,185 @@ public final class PostgreSqlPunishmentRepository {
         }
     }
 
+    /*
+     * ============================================================
+     * UPDATE BAN
+     * ============================================================
+     */
+
+    public void updateBan(
+            UUID uniqueId,
+            Ban ban
+    ) {
+
+        requireId(uniqueId);
+
+        if (ban == null) {
+            throw new IllegalArgumentException(
+                    "Ban não pode ser nulo."
+            );
+        }
+
+        final String sql = """
+                UPDATE "punishments"
+                SET
+                    "removed" = ?,
+                    "removedBy" = ?,
+                    "removedByUuid" = ?,
+                    "removedAt" = ?
+                WHERE "uniqueId" = ?
+                  AND "type" = 'BAN'
+                  AND "punishmentTime" = ?
+                """;
+
+        try (
+                Connection connection =
+                        database.getConnection();
+
+                PreparedStatement statement =
+                        connection.prepareStatement(sql)
+        ) {
+
+            statement.setBoolean(
+                    1,
+                    ban.isUnbanned()
+            );
+
+            setNullableString(
+                    statement,
+                    2,
+                    ban.getUnbannedBy()
+            );
+
+            setNullableUuid(
+                    statement,
+                    3,
+                    ban.getUnbannedByUniqueId()
+            );
+
+            setNullableTimestamp(
+                    statement,
+                    4,
+                    ban.getUnbanTime()
+            );
+
+            statement.setObject(
+                    5,
+                    uniqueId
+            );
+
+            statement.setTimestamp(
+                    6,
+                    Timestamp.from(
+                            ban.getBanTime()
+                    )
+            );
+
+            statement.executeUpdate();
+
+        } catch (SQLException exception) {
+
+            throw new RuntimeException(
+                    "Erro ao atualizar ban.",
+                    exception
+            );
+        }
+    }
+
+    /*
+     * ============================================================
+     * UPDATE MUTE
+     * ============================================================
+     */
+
+    public void updateMute(
+            UUID uniqueId,
+            Mute mute
+    ) {
+
+        requireId(uniqueId);
+
+        if (mute == null) {
+            throw new IllegalArgumentException(
+                    "Mute não pode ser nulo."
+            );
+        }
+
+        final String sql = """
+                UPDATE "punishments"
+                SET
+                    "removed" = ?,
+                    "removedBy" = ?,
+                    "removedByUuid" = ?,
+                    "removedAt" = ?
+                WHERE "uniqueId" = ?
+                  AND "type" = 'MUTE'
+                  AND "punishmentTime" = ?
+                """;
+
+        try (
+                Connection connection =
+                        database.getConnection();
+
+                PreparedStatement statement =
+                        connection.prepareStatement(sql)
+        ) {
+
+            statement.setBoolean(
+                    1,
+                    mute.isUnmuted()
+            );
+
+            setNullableString(
+                    statement,
+                    2,
+                    mute.getUnmutedBy()
+            );
+
+            setNullableUuid(
+                    statement,
+                    3,
+                    mute.getUnmutedByUniqueId()
+            );
+
+            setNullableTimestamp(
+                    statement,
+                    4,
+                    mute.getUnmuteTime()
+            );
+
+            statement.setObject(
+                    5,
+                    uniqueId
+            );
+
+            statement.setTimestamp(
+                    6,
+                    Timestamp.from(
+                            mute.getMuteTime()
+                    )
+            );
+
+            statement.executeUpdate();
+
+        } catch (SQLException exception) {
+
+            throw new RuntimeException(
+                    "Erro ao atualizar mute.",
+                    exception
+            );
+        }
+    }
+
+    /*
+     * ============================================================
+     * HELPERS
+     * ============================================================
+     */
+
     private void savePunishment(
             UUID uniqueId,
+            String punishmentId,
             String punishedBy,
             UUID punishedByUuid,
             String ip,
@@ -685,75 +921,75 @@ public final class PostgreSqlPunishmentRepository {
 
             statement.setString(
                     1,
-                    uniqueId.toString()
+                    punishmentId
             );
 
-            statement.setString(
+            statement.setObject(
                     2,
-                    punishedBy
+                    uniqueId
             );
 
             statement.setString(
                     3,
-                    punishedByUuid.toString()
+                    punishedBy
             );
 
-            setNullableString(
+            setNullableUuid(
                     statement,
                     4,
-                    ip
+                    punishedByUuid
             );
 
             setNullableString(
                     statement,
                     5,
+                    ip
+            );
+
+            setNullableString(
+                    statement,
+                    6,
                     server
             );
 
             statement.setTimestamp(
-                    6,
+                    7,
                     Timestamp.from(
                             punishmentTime
                     )
             );
 
             statement.setString(
-                    7,
+                    8,
                     reason
             );
 
             setNullableTimestamp(
                     statement,
-                    8,
+                    9,
                     expiresAt
             );
 
             statement.setBoolean(
-                    9,
+                    10,
                     removed
             );
 
             setNullableString(
                     statement,
-                    10,
+                    11,
                     removedBy
             );
 
-            if (removedByUuid == null) {
-                statement.setNull(
-                        11,
-                        Types.VARCHAR
-                );
-            } else {
-                statement.setString(
-                        11,
-                        removedByUuid.toString()
-                );
-            }
+            setNullableUuid(
+                    statement,
+                    12,
+                    removedByUuid
+            );
 
             setNullableTimestamp(
                     statement,
-                    12,
+                    13,
                     removedAt
             );
 
@@ -764,6 +1000,17 @@ public final class PostgreSqlPunishmentRepository {
             throw new RuntimeException(
                     "Erro ao salvar punição.",
                     exception
+            );
+        }
+    }
+
+    private void requireId(
+            UUID uniqueId
+    ) {
+
+        if (uniqueId == null) {
+            throw new IllegalArgumentException(
+                    "UUID da conta não pode ser nulo."
             );
         }
     }
@@ -784,6 +1031,28 @@ public final class PostgreSqlPunishmentRepository {
             return UUID.fromString(value);
         } catch (IllegalArgumentException exception) {
             return null;
+        }
+    }
+
+    private void setNullableUuid(
+            PreparedStatement statement,
+            int index,
+            UUID value
+    ) throws SQLException {
+
+        if (value == null) {
+
+            statement.setNull(
+                    index,
+                    Types.VARCHAR
+            );
+
+        } else {
+
+            statement.setObject(
+                    index,
+                    value
+            );
         }
     }
 
