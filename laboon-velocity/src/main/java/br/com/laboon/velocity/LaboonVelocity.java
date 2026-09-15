@@ -28,8 +28,8 @@ import br.com.laboon.core.redis.RedisManager;
 import br.com.laboon.core.report.ReportExpirationService;
 import br.com.laboon.core.report.ReportManager;
 import br.com.laboon.core.server.ServerRegistry;
-
 import br.com.laboon.core.vanish.GlobalVanishRepository;
+
 import br.com.laboon.velocity.account.VelocityAccountService;
 import br.com.laboon.velocity.auth.AuthenticationService;
 import br.com.laboon.velocity.auth.MojangProfileService;
@@ -60,8 +60,8 @@ import br.com.laboon.velocity.server.ServerFallbackService;
 import br.com.laboon.velocity.server.ServerRegistrationService;
 import br.com.laboon.velocity.server.ServerRegistrySync;
 import br.com.laboon.velocity.server.ServerSelector;
-
 import br.com.laboon.velocity.vanish.VelocityVanishService;
+
 import com.google.inject.Inject;
 
 import com.velocitypowered.api.event.Subscribe;
@@ -211,9 +211,10 @@ public final class LaboonVelocity {
 
     /*
      * =========================
-     * VANISH
+     * VANISH / PLAYER ACTION
      * =========================
      */
+
     private VelocityPlayerActionService velocityPlayerActionService;
     private GlobalVanishRepository globalVanishRepository;
     private VelocityVanishService velocityVanishService;
@@ -245,30 +246,64 @@ public final class LaboonVelocity {
         VelocityConfig config =
                 VelocityConfig.defaultConfig();
 
+        /*
+         * =========================
+         * INFRAESTRUTURA
+         * =========================
+         */
+
         connectRedis(config);
-
         connectDatabase(config);
-
         setupLanguage();
+
+        /*
+         * =========================
+         * DEPENDÊNCIAS
+         * =========================
+         */
 
         setupManagers();
 
-        startReportExpiration();
-
-        registerServers();
-
-        startServerSync();
+        /*
+         * =========================
+         * MESSAGING
+         * =========================
+         *
+         * IMPORTANTE:
+         * Deve acontecer antes dos serviços
+         * que dependem do MessageBus.
+         */
 
         setupMessaging();
 
+        /*
+         * =========================
+         * SERVIDORES
+         * =========================
+         */
+
+        registerServers();
+        startServerSync();
+
+        /*
+         * =========================
+         * REPORTS
+         * =========================
+         */
+
+        startReportExpiration();
+
+        /*
+         * =========================
+         * OUTROS SISTEMAS
+         * =========================
+         */
+
         setupFriends();
-
         setupCommandFramework();
-
         setupHeartbeat(config);
 
         registerCommands();
-
         registerListeners();
 
         logger.info(
@@ -633,11 +668,6 @@ public final class LaboonVelocity {
                         reportManager
                 );
 
-        velocityAccountService = new VelocityAccountService(accountManager, accountSessionManager);
-        globalVanishRepository = new GlobalVanishRepository(redisManager);
-        velocityVanishService = new VelocityVanishService(messageBus, globalVanishRepository);
-        velocityVanishService.start();
-
         logger.info(
                 "Managers inicializados."
         );
@@ -701,12 +731,30 @@ public final class LaboonVelocity {
                         subscriber
                 );
 
+        /*
+         * =========================
+         * NETWORK
+         * =========================
+         */
+
         startNetworkPlayerCount();
+
+        /*
+         * =========================
+         * GROUP UPDATE
+         * =========================
+         */
 
         groupUpdatePublisher =
                 new GroupUpdatePublisher(
                         messageBus
                 );
+
+        /*
+         * =========================
+         * MESSAGE SERVICE
+         * =========================
+         */
 
         messageService =
                 new VelocityMessageService(
@@ -715,6 +763,12 @@ public final class LaboonVelocity {
                 );
 
         messageService.listen();
+
+        /*
+         * =========================
+         * ACCOUNT DELIVERY
+         * =========================
+         */
 
         AccountDeliveryListener accountDeliveryListener =
                 new AccountDeliveryListener(
@@ -726,6 +780,47 @@ public final class LaboonVelocity {
 
         accountDeliveryListener.register(
                 messageBus
+        );
+
+        /*
+         * =========================
+         * PLAYER ACTION
+         * =========================
+         */
+
+        velocityPlayerActionService =
+                new VelocityPlayerActionService(
+                        proxyServer,
+                        messageBus,
+                        playerManager,
+                        accountManager,
+                        serverRegistry,
+                        connectionService
+                );
+
+        velocityPlayerActionService.register();
+
+        /*
+         * =========================
+         * GLOBAL VANISH
+         * =========================
+         */
+
+        globalVanishRepository =
+                new GlobalVanishRepository(
+                        redisManager
+                );
+
+        velocityVanishService =
+                new VelocityVanishService(
+                        messageBus,
+                        globalVanishRepository
+                );
+
+        velocityVanishService.start();
+
+        logger.info(
+                "PlayerAction + Global Vanish inicializados."
         );
 
         logger.info(
@@ -890,6 +985,10 @@ public final class LaboonVelocity {
                                 TimeUnit.SECONDS
                         )
                         .schedule();
+
+        logger.info(
+                "Contador de jogadores da rede iniciado."
+        );
     }
 
     /*
@@ -1078,10 +1177,9 @@ public final class LaboonVelocity {
         }
 
         /*
-         * PostgreSQL
-         *
-         * Antes do Redis, porque o Redis é
-         * utilizado pelo cache.
+         * =========================
+         * POSTGRESQL
+         * =========================
          */
 
         if (databaseManager != null) {
@@ -1110,7 +1208,9 @@ public final class LaboonVelocity {
         }
 
         /*
-         * Redis
+         * =========================
+         * REDIS
+         * =========================
          */
 
         if (redisManager != null) {
@@ -1138,6 +1238,12 @@ public final class LaboonVelocity {
             redisManager = null;
         }
 
+        /*
+         * =========================
+         * LIMPEZA DE REFERÊNCIAS
+         * =========================
+         */
+
         accountService = null;
         accountManager = null;
         accountRepository = null;
@@ -1146,6 +1252,12 @@ public final class LaboonVelocity {
         accountPreferencesRepository = null;
         temporaryGroupRepository = null;
         punishmentRepository = null;
+
+        messageBus = null;
+
+        velocityPlayerActionService = null;
+        velocityVanishService = null;
+        globalVanishRepository = null;
 
         logger.info(
                 "Laboon encerrado."
