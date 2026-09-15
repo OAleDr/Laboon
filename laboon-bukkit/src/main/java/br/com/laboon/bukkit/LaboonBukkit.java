@@ -30,26 +30,24 @@ import br.com.laboon.bukkit.profile.ProfileListener;
 import br.com.laboon.bukkit.profile.ProfileProvider;
 import br.com.laboon.bukkit.server.ServerHeartbeat;
 import br.com.laboon.bukkit.server.ServerRuntimeState;
-
 import br.com.laboon.bukkit.vanish.VanishListener;
 import br.com.laboon.bukkit.vanish.VanishPlayerView;
 import br.com.laboon.bukkit.vanish.VanishService;
 import br.com.laboon.core.account.AccountManager;
 import br.com.laboon.core.account.AccountService;
 import br.com.laboon.core.account.cache.AccountCache;
-
 import br.com.laboon.core.account.repository.AccountRepository;
 import br.com.laboon.core.account.repository.PostgreSqlAccountPreferencesRepository;
 import br.com.laboon.core.account.repository.PostgreSqlAccountRepository;
 import br.com.laboon.core.account.repository.PostgreSqlPunishmentRepository;
 import br.com.laboon.core.account.repository.PostgreSqlTemporaryGroupRepository;
-
 import br.com.laboon.core.command.CommandClass;
 import br.com.laboon.core.command.CommandLoader;
 import br.com.laboon.core.command.CommandProvider;
 import br.com.laboon.core.command.CommandScanner;
 import br.com.laboon.core.database.DatabaseConfig;
 import br.com.laboon.core.database.DatabaseManager;
+import br.com.laboon.core.database.DatabaseMigrationService;
 import br.com.laboon.core.economy.EconomyRepository;
 import br.com.laboon.core.economy.EconomyService;
 import br.com.laboon.core.economy.PostgreSqlEconomyRepository;
@@ -65,10 +63,9 @@ import br.com.laboon.core.profile.GameCoinsRepository;
 import br.com.laboon.core.profile.StatisticsRepository;
 import br.com.laboon.core.redis.RedisManager;
 import br.com.laboon.core.report.ReportManager;
-
-import br.com.laboon.core.rewards.PostgreSqlRewardClaimRepository;
-import br.com.laboon.core.rewards.RewardClaimRepository;
+import br.com.laboon.core.rewards.PostgreSqlRewardTransactionRepository;
 import br.com.laboon.core.rewards.RewardService;
+import br.com.laboon.core.rewards.RewardTransactionRepository;
 import br.com.laboon.core.vanish.GlobalVanishRepository;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -225,20 +222,27 @@ public final class LaboonBukkit extends JavaPlugin {
      * VANISH
      * =========================
      */
+
     private BukkitPlayerActionService bukkitPlayerActionService;
 
     private GlobalVanishRepository globalVanishRepository;
+
     private VanishService vanishService;
+
     private VanishPlayerView vanishPlayerView;
 
     /*
      * =========================
-     * ECONOMY
+     * ECONOMY / REWARDS
      * =========================
      */
 
     private EconomyRepository economyRepository;
+
     private EconomyService economyService;
+
+    private RewardTransactionRepository rewardTransactionRepository;
+
     private RewardService rewardService;
 
     /*
@@ -492,6 +496,19 @@ public final class LaboonBukkit extends JavaPlugin {
                             config
                     );
 
+            DatabaseMigrationService migrationService =
+                    new DatabaseMigrationService(
+                            databaseManager
+                    );
+
+            migrationService.execute(
+                    "database/economy.sql"
+            );
+
+            migrationService.execute(
+                    "database/rewards.sql"
+            );
+
             if (!databaseManager.isConnected()) {
 
                 getLogger().severe(
@@ -518,7 +535,9 @@ public final class LaboonBukkit extends JavaPlugin {
             if (databaseManager != null) {
 
                 try {
+
                     databaseManager.close();
+
                 } catch (Exception ignored) {
                 }
             }
@@ -687,20 +706,30 @@ public final class LaboonBukkit extends JavaPlugin {
                         economyRepository
                 );
 
-        RewardClaimRepository rewardClaimRepository =
-                new PostgreSqlRewardClaimRepository(
+        /*
+         * =========================
+         * REWARDS
+         * =========================
+         */
+
+        rewardTransactionRepository =
+                new PostgreSqlRewardTransactionRepository(
                         databaseManager
                 );
 
-        RewardService rewardService =
+        rewardService =
                 new RewardService(
-                        economyService,
+                        databaseManager,
                         accountManager,
-                        rewardClaimRepository
+                        rewardTransactionRepository
                 );
 
         getLogger().info(
-                "Economy e Rewards inicializados."
+                "Economy inicializada."
+        );
+
+        getLogger().info(
+                "Rewards inicializados."
         );
 
         getLogger().info(
@@ -843,14 +872,33 @@ public final class LaboonBukkit extends JavaPlugin {
          * =========================
          */
 
-        bukkitPlayerActionService = new BukkitPlayerActionService(this, messageBus);
+        bukkitPlayerActionService =
+                new BukkitPlayerActionService(
+                        this,
+                        messageBus
+                );
+
         bukkitPlayerActionService.register();
 
-        globalVanishRepository = new GlobalVanishRepository(redisManager);
-        vanishService = new VanishService(this, messageBus, globalVanishRepository, accountManager);
+        globalVanishRepository =
+                new GlobalVanishRepository(
+                        redisManager
+                );
+
+        vanishService =
+                new VanishService(
+                        this,
+                        messageBus,
+                        globalVanishRepository,
+                        accountManager
+                );
+
         vanishService.register();
 
-        vanishPlayerView = new VanishPlayerView(vanishService);
+        vanishPlayerView =
+                new VanishPlayerView(
+                        vanishService
+                );
 
         getLogger().info(
                 "Messaging inicializado."
@@ -888,7 +936,9 @@ public final class LaboonBukkit extends JavaPlugin {
         getServer()
                 .getPluginManager()
                 .registerEvents(
-                        new VanishListener(vanishService),
+                        new VanishListener(
+                                vanishService
+                        ),
                         this
                 );
 
@@ -1401,6 +1451,14 @@ public final class LaboonBukkit extends JavaPlugin {
 
         redisManager = null;
 
+        economyRepository = null;
+
+        economyService = null;
+
+        rewardTransactionRepository = null;
+
+        rewardService = null;
+
         getLogger().info(
                 "Laboon Bukkit encerrado."
         );
@@ -1494,6 +1552,12 @@ public final class LaboonBukkit extends JavaPlugin {
 
     public EconomyService getEconomyService() {
         return economyService;
+    }
+
+    public RewardTransactionRepository
+    getRewardTransactionRepository() {
+
+        return rewardTransactionRepository;
     }
 
     public RewardService getRewardService() {

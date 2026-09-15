@@ -13,6 +13,7 @@ import br.com.laboon.core.command.CommandLoader;
 import br.com.laboon.core.command.CommandScanner;
 import br.com.laboon.core.database.DatabaseConfig;
 import br.com.laboon.core.database.DatabaseManager;
+import br.com.laboon.core.database.DatabaseMigrationService;
 import br.com.laboon.core.economy.EconomyRepository;
 import br.com.laboon.core.economy.EconomyService;
 import br.com.laboon.core.economy.PostgreSqlEconomyRepository;
@@ -30,9 +31,9 @@ import br.com.laboon.core.profile.StatisticsRepository;
 import br.com.laboon.core.redis.RedisManager;
 import br.com.laboon.core.report.ReportExpirationService;
 import br.com.laboon.core.report.ReportManager;
-import br.com.laboon.core.rewards.PostgreSqlRewardClaimRepository;
-import br.com.laboon.core.rewards.RewardClaimRepository;
+import br.com.laboon.core.rewards.PostgreSqlRewardTransactionRepository;
 import br.com.laboon.core.rewards.RewardService;
+import br.com.laboon.core.rewards.RewardTransactionRepository;
 import br.com.laboon.core.server.ServerRegistry;
 import br.com.laboon.core.vanish.GlobalVanishRepository;
 
@@ -227,12 +228,13 @@ public final class LaboonVelocity {
 
     /*
      * =========================
-     * ECONOMY
+     * ECONOMY / REWARDS
      * =========================
      */
 
     private EconomyRepository economyRepository;
     private EconomyService economyService;
+    private RewardTransactionRepository rewardTransactionRepository;
     private RewardService rewardService;
 
     @Inject
@@ -284,10 +286,6 @@ public final class LaboonVelocity {
          * =========================
          * MESSAGING
          * =========================
-         *
-         * IMPORTANTE:
-         * Deve acontecer antes dos serviços
-         * que dependem do MessageBus.
          */
 
         setupMessaging();
@@ -380,10 +378,8 @@ public final class LaboonVelocity {
                         config.getDatabaseName(),
                         config.getDatabaseUsername(),
                         config.getDatabasePassword(),
-
                         config.getDatabaseMaximumPoolSize(),
                         config.getDatabaseMinimumIdle(),
-
                         config.getDatabaseConnectionTimeout(),
                         config.getDatabaseIdleTimeout(),
                         config.getDatabaseMaxLifetime()
@@ -403,6 +399,19 @@ public final class LaboonVelocity {
                         databaseConfig
                 );
 
+        DatabaseMigrationService migrationService =
+                new DatabaseMigrationService(
+                        databaseManager
+                );
+
+        migrationService.execute(
+                "database/economy.sql"
+        );
+
+        migrationService.execute(
+                "database/rewards.sql"
+        );
+
         if (!databaseManager.isConnected()) {
 
             throw new IllegalStateException(
@@ -410,75 +419,8 @@ public final class LaboonVelocity {
             );
         }
 
-        /*
-         * =========================
-         * REPOSITORIES
-         * =========================
-         */
-
-        accountRepository =
-                new PostgreSqlAccountRepository(
-                        databaseManager
-                );
-
-        accountPreferencesRepository =
-                new PostgreSqlAccountPreferencesRepository(
-                        databaseManager
-                );
-
-        temporaryGroupRepository =
-                new PostgreSqlTemporaryGroupRepository(
-                        databaseManager
-                );
-
-        punishmentRepository =
-                new PostgreSqlPunishmentRepository(
-                        databaseManager
-                );
-
-        /*
-         * =========================
-         * CACHE
-         * =========================
-         */
-
-        accountCache =
-                new AccountCache(
-                        redisManager
-                );
-
-        /*
-         * =========================
-         * ACCOUNT SERVICE
-         * =========================
-         */
-
-        accountService =
-                new AccountService(
-                        accountRepository,
-                        accountCache,
-                        accountPreferencesRepository,
-                        temporaryGroupRepository,
-                        punishmentRepository
-                );
-
-        /*
-         * =========================
-         * ACCOUNT MANAGER
-         * =========================
-         */
-
-        accountManager =
-                new AccountManager(
-                        accountService
-                );
-
         logger.info(
                 "PostgreSQL conectado com sucesso!"
-        );
-
-        logger.info(
-                "Sistema de Accounts inicializado com PostgreSQL + Redis."
         );
     }
 
@@ -700,16 +642,22 @@ public final class LaboonVelocity {
                         economyRepository
                 );
 
-        RewardClaimRepository rewardClaimRepository =
-                new PostgreSqlRewardClaimRepository(
+        /*
+         * =========================
+         * REWARDS
+         * =========================
+         */
+
+        rewardTransactionRepository =
+                new PostgreSqlRewardTransactionRepository(
                         databaseManager
                 );
 
-        RewardService rewardService =
+        rewardService =
                 new RewardService(
-                        economyService,
+                        databaseManager,
                         accountManager,
-                        rewardClaimRepository
+                        rewardTransactionRepository
                 );
 
         logger.info(
@@ -910,15 +858,11 @@ public final class LaboonVelocity {
                         languageService,
                         temporaryGroupService,
                         groupUpdatePublisher,
-
                         serverSelector,
                         connectionService,
-
                         partyManager,
                         partyServerService,
-
                         friendManager,
-
                         reportManager,
                         reportNotificationService,
                         punishmentService
@@ -1091,7 +1035,6 @@ public final class LaboonVelocity {
                                         "servers"
                                 )
                                 .build(),
-
                         new ServerCommand(
                                 serverSelector,
                                 connectionService,
@@ -1112,7 +1055,6 @@ public final class LaboonVelocity {
                                         "idioma"
                                 )
                                 .build(),
-
                         new LanguageCommand(
                                 accountManager,
                                 languageService
@@ -1288,7 +1230,7 @@ public final class LaboonVelocity {
 
         /*
          * =========================
-         * LIMPEZA DE REFERÊNCIAS
+         * LIMPEZA
          * =========================
          */
 
@@ -1306,6 +1248,11 @@ public final class LaboonVelocity {
         velocityPlayerActionService = null;
         velocityVanishService = null;
         globalVanishRepository = null;
+
+        economyRepository = null;
+        economyService = null;
+        rewardTransactionRepository = null;
+        rewardService = null;
 
         logger.info(
                 "Laboon encerrado."
@@ -1415,8 +1362,13 @@ public final class LaboonVelocity {
         return economyService;
     }
 
+    public RewardTransactionRepository
+    getRewardTransactionRepository() {
+
+        return rewardTransactionRepository;
+    }
+
     public RewardService getRewardService() {
         return rewardService;
     }
-
 }

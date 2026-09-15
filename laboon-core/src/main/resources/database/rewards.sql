@@ -7,12 +7,11 @@ CREATE TABLE IF NOT EXISTS laboon_reward_claims
     source VARCHAR(64) NOT NULL,
 
     created_at TIMESTAMP WITH TIME ZONE
-                             NOT NULL
-                             DEFAULT CURRENT_TIMESTAMP,
+                             NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
                              CONSTRAINT laboon_reward_claims_player_fk
                              FOREIGN KEY (player_uuid)
-    REFERENCES laboon_economy_accounts(player_uuid)
+    REFERENCES "accounts"("uniqueId")
                          ON DELETE CASCADE
     );
 
