@@ -427,6 +427,177 @@ public final class PostgreSqlEconomyRepository implements EconomyRepository {
     }
 
     @Override
+    public void saveWithTransaction(
+            EconomyAccount account,
+            EconomyTransaction transaction
+    ) {
+
+        if (account == null) {
+            throw new IllegalArgumentException(
+                    "EconomyAccount não pode ser nulo."
+            );
+        }
+
+        if (transaction == null) {
+            throw new IllegalArgumentException(
+                    "EconomyTransaction não pode ser nula."
+            );
+        }
+
+        String accountSql = """
+            INSERT INTO laboon_economy_accounts
+                (
+                    player_uuid,
+                    coins,
+                    tokens,
+                    updated_at
+                )
+            VALUES
+                (?, ?, ?, ?)
+            ON CONFLICT (player_uuid)
+            DO UPDATE SET
+                coins = EXCLUDED.coins,
+                tokens = EXCLUDED.tokens,
+                updated_at = EXCLUDED.updated_at
+            """;
+
+        String transactionSql = """
+            INSERT INTO laboon_economy_transactions
+                (
+                    id,
+                    player_uuid,
+                    currency,
+                    amount,
+                    type,
+                    source,
+                    metadata,
+                    created_at
+                )
+            VALUES
+                (?, ?, ?, ?, ?, ?, ?, ?)
+            """;
+
+        try (
+                Connection connection =
+                        databaseManager.getConnection()
+        ) {
+
+            connection.setAutoCommit(false);
+
+            try (
+                    PreparedStatement accountStatement =
+                            connection.prepareStatement(accountSql);
+
+                    PreparedStatement transactionStatement =
+                            connection.prepareStatement(transactionSql)
+            ) {
+
+                accountStatement.setObject(
+                        1,
+                        account.getPlayerUuid()
+                );
+
+                accountStatement.setLong(
+                        2,
+                        account.getBalance(
+                                EconomyCurrency.COINS
+                        )
+                );
+
+                accountStatement.setLong(
+                        3,
+                        account.getBalance(
+                                EconomyCurrency.TOKENS
+                        )
+                );
+
+                accountStatement.setTimestamp(
+                        4,
+                        Timestamp.from(
+                                Instant.now()
+                        )
+                );
+
+                accountStatement.executeUpdate();
+
+                transactionStatement.setObject(
+                        1,
+                        transaction.getId()
+                );
+
+                transactionStatement.setObject(
+                        2,
+                        transaction.getPlayerUuid()
+                );
+
+                transactionStatement.setString(
+                        3,
+                        transaction.getCurrency().name()
+                );
+
+                transactionStatement.setLong(
+                        4,
+                        transaction.getAmount()
+                );
+
+                transactionStatement.setString(
+                        5,
+                        transaction.getType().name()
+                );
+
+                transactionStatement.setString(
+                        6,
+                        transaction.getSource()
+                );
+
+                transactionStatement.setString(
+                        7,
+                        transaction.getMetadata()
+                );
+
+                transactionStatement.setTimestamp(
+                        8,
+                        Timestamp.from(
+                                transaction.getCreatedAt()
+                        )
+                );
+
+                transactionStatement.executeUpdate();
+
+                connection.commit();
+
+            } catch (Exception exception) {
+
+                try {
+                    connection.rollback();
+                } catch (SQLException rollbackException) {
+                    exception.addSuppressed(
+                            rollbackException
+                    );
+                }
+
+                throw exception;
+
+            } finally {
+
+                try {
+                    connection.setAutoCommit(true);
+                } catch (SQLException ignored) {
+                }
+            }
+
+        } catch (Exception exception) {
+
+            throw new IllegalStateException(
+                    "Erro ao salvar economia e transação "
+                            + "atomicamente para: "
+                            + account.getPlayerUuid(),
+                    exception
+            );
+        }
+    }
+
+    @Override
     public List<EconomyTransaction> getTransactions(
             UUID playerUuid,
             int limit

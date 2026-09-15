@@ -19,6 +19,11 @@ public interface EconomyRepository {
             EconomyTransaction transaction
     );
 
+    void saveWithTransaction(
+            EconomyAccount account,
+            EconomyTransaction transaction
+    );
+
     List<EconomyTransaction> getTransactions(
             UUID playerUuid,
             int limit

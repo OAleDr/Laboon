@@ -52,6 +52,8 @@ public final class EconomyService {
             String source
     ) {
 
+        validateUuid(playerUuid);
+
         if (currency == null) {
             return EconomyResult.failure(
                     EconomyResult.Status.ERROR
@@ -72,9 +74,7 @@ public final class EconomyService {
                 amount
         );
 
-        repository.save(account);
-
-        repository.saveTransaction(
+        EconomyTransaction transaction =
                 new EconomyTransaction(
                         UUID.randomUUID(),
                         playerUuid,
@@ -84,7 +84,11 @@ public final class EconomyService {
                         normalizeSource(source),
                         null,
                         Instant.now()
-                )
+                );
+
+        repository.saveWithTransaction(
+                account,
+                transaction
         );
 
         return EconomyResult.success(
@@ -100,6 +104,8 @@ public final class EconomyService {
             String metadata
     ) {
 
+        validateUuid(playerUuid);
+
         if (currency == null) {
             return EconomyResult.failure(
                     EconomyResult.Status.ERROR
@@ -120,9 +126,7 @@ public final class EconomyService {
                 amount
         );
 
-        repository.save(account);
-
-        repository.saveTransaction(
+        EconomyTransaction transaction =
                 new EconomyTransaction(
                         UUID.randomUUID(),
                         playerUuid,
@@ -132,7 +136,11 @@ public final class EconomyService {
                         normalizeSource(source),
                         metadata,
                         Instant.now()
-                )
+                );
+
+        repository.saveWithTransaction(
+                account,
+                transaction
         );
 
         return EconomyResult.success(
@@ -146,6 +154,8 @@ public final class EconomyService {
             long amount,
             String source
     ) {
+
+        validateUuid(playerUuid);
 
         if (currency == null) {
             return EconomyResult.failure(
@@ -172,9 +182,7 @@ public final class EconomyService {
             );
         }
 
-        repository.save(account);
-
-        repository.saveTransaction(
+        EconomyTransaction transaction =
                 new EconomyTransaction(
                         UUID.randomUUID(),
                         playerUuid,
@@ -184,7 +192,11 @@ public final class EconomyService {
                         normalizeSource(source),
                         null,
                         Instant.now()
-                )
+                );
+
+        repository.saveWithTransaction(
+                account,
+                transaction
         );
 
         return EconomyResult.success(
@@ -200,6 +212,8 @@ public final class EconomyService {
             String metadata
     ) {
 
+        validateUuid(playerUuid);
+
         if (currency == null) {
             return EconomyResult.failure(
                     EconomyResult.Status.ERROR
@@ -225,9 +239,7 @@ public final class EconomyService {
             );
         }
 
-        repository.save(account);
-
-        repository.saveTransaction(
+        EconomyTransaction transaction =
                 new EconomyTransaction(
                         UUID.randomUUID(),
                         playerUuid,
@@ -237,7 +249,11 @@ public final class EconomyService {
                         normalizeSource(source),
                         metadata,
                         Instant.now()
-                )
+                );
+
+        repository.saveWithTransaction(
+                account,
+                transaction
         );
 
         return EconomyResult.success(
