@@ -24,12 +24,16 @@ import br.com.laboon.bukkit.gui.GuiManager;
 import br.com.laboon.bukkit.gui.friend.FriendGui;
 import br.com.laboon.bukkit.gui.reports.ReportListGui;
 import br.com.laboon.bukkit.listener.PunishmentChatListener;
+import br.com.laboon.bukkit.messaging.BukkitPlayerActionService;
 import br.com.laboon.bukkit.profile.BukkitProfileProvider;
 import br.com.laboon.bukkit.profile.ProfileListener;
 import br.com.laboon.bukkit.profile.ProfileProvider;
 import br.com.laboon.bukkit.server.ServerHeartbeat;
 import br.com.laboon.bukkit.server.ServerRuntimeState;
 
+import br.com.laboon.bukkit.vanish.VanishListener;
+import br.com.laboon.bukkit.vanish.VanishPlayerView;
+import br.com.laboon.bukkit.vanish.VanishService;
 import br.com.laboon.core.account.AccountManager;
 import br.com.laboon.core.account.AccountService;
 import br.com.laboon.core.account.cache.AccountCache;
@@ -59,6 +63,7 @@ import br.com.laboon.core.profile.StatisticsRepository;
 import br.com.laboon.core.redis.RedisManager;
 import br.com.laboon.core.report.ReportManager;
 
+import br.com.laboon.core.vanish.GlobalVanishRepository;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.nio.file.Files;
@@ -208,6 +213,17 @@ public final class LaboonBukkit extends JavaPlugin {
     private TitleAPI titleAPI;
 
     private SkinService skinService;
+
+    /*
+     * =========================
+     * VANISH
+     * =========================
+     */
+    private BukkitPlayerActionService bukkitPlayerActionService;
+
+    private GlobalVanishRepository globalVanishRepository;
+    private VanishService vanishService;
+    private VanishPlayerView vanishPlayerView;
 
     /*
      * =========================
@@ -773,6 +789,21 @@ public final class LaboonBukkit extends JavaPlugin {
 
         groupUpdateListener.register();
 
+        /*
+         * =========================
+         * VANISH
+         * =========================
+         */
+
+        bukkitPlayerActionService = new BukkitPlayerActionService(this, messageBus);
+        bukkitPlayerActionService.register();
+
+        globalVanishRepository = new GlobalVanishRepository(redisManager);
+        vanishService = new VanishService(this, messageBus, globalVanishRepository, accountManager);
+        vanishService.register();
+
+        vanishPlayerView = new VanishPlayerView(vanishService);
+
         getLogger().info(
                 "Messaging inicializado."
         );
@@ -809,6 +840,13 @@ public final class LaboonBukkit extends JavaPlugin {
         getServer()
                 .getPluginManager()
                 .registerEvents(
+                        new VanishListener(vanishService),
+                        this
+                );
+
+        getServer()
+                .getPluginManager()
+                .registerEvents(
                         guiManager,
                         this
                 );
@@ -828,7 +866,8 @@ public final class LaboonBukkit extends JavaPlugin {
                 new ReportListGui(
                         guiManager,
                         reportManager,
-                        anvilGuiManager
+                        anvilGuiManager,
+                        bukkitPlayerActionService
                 );
 
         /*

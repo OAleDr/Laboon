@@ -5,6 +5,7 @@ import br.com.laboon.bukkit.gui.Gui;
 import br.com.laboon.bukkit.gui.GuiClickEvent;
 import br.com.laboon.bukkit.gui.GuiItem;
 import br.com.laboon.bukkit.gui.GuiManager;
+import br.com.laboon.bukkit.messaging.BukkitPlayerActionService;
 import br.com.laboon.core.report.Report;
 import br.com.laboon.core.report.ReportManager;
 import br.com.laboon.core.report.ReportStatus;
@@ -40,8 +41,9 @@ public final class ReportListGui {
     private final GuiManager guiManager;
     private final ReportManager reportManager;
     private final AnvilGuiManager anvilGuiManager;
+    private final BukkitPlayerActionService bukkitPlayerActionService;
 
-    public ReportListGui(GuiManager guiManager, ReportManager reportManager, AnvilGuiManager anvilGuiManager) {
+    public ReportListGui(GuiManager guiManager, ReportManager reportManager, AnvilGuiManager anvilGuiManager, BukkitPlayerActionService bukkitPlayerActionService) {
 
         if (guiManager == null) {
             throw new IllegalArgumentException("GuiManager não pode ser nulo.");
@@ -55,9 +57,14 @@ public final class ReportListGui {
             throw new IllegalArgumentException("AnvilGuiManager não pode ser nulo.");
         }
 
+        if (bukkitPlayerActionService == null) {
+            throw new IllegalArgumentException("BukkitPlayerActionService não pode ser nulo.");
+        }
+
         this.guiManager = guiManager;
         this.reportManager = reportManager;
         this.anvilGuiManager = anvilGuiManager;
+        this.bukkitPlayerActionService = bukkitPlayerActionService;
     }
 
     public void open(Player player) {
@@ -311,7 +318,7 @@ public final class ReportListGui {
 
     private void openHistory(Player player, ReportGroup group, ReportStatus status) {
 
-        ReportHistoryGui historyGui = new ReportHistoryGui(guiManager, reportManager, anvilGuiManager);
+        ReportHistoryGui historyGui = new ReportHistoryGui(guiManager, reportManager, anvilGuiManager, bukkitPlayerActionService);
 
         historyGui.open(player, group.getTargetUniqueId(), group.getTargetName(), status);
     }
@@ -363,7 +370,7 @@ public final class ReportListGui {
 
         player.sendMessage("§e§lREPORT §8» §7Servidor registrado: §f" + latest.getServer());
 
-        player.sendMessage("§7A conexão pelo proxy será adicionada " + "na próxima etapa.");
+        bukkitPlayerActionService.teleport(player, group.targetUniqueId);
     }
 
     private String getLatestServer(ReportGroup group, ReportStatus status) {

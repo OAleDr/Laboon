@@ -4,6 +4,7 @@ import br.com.laboon.bukkit.gui.AnvilGuiManager;
 import br.com.laboon.bukkit.gui.Gui;
 import br.com.laboon.bukkit.gui.GuiItem;
 import br.com.laboon.bukkit.gui.GuiManager;
+import br.com.laboon.bukkit.messaging.BukkitPlayerActionService;
 import br.com.laboon.core.report.Report;
 import br.com.laboon.core.report.ReportDecision;
 import br.com.laboon.core.report.ReportManager;
@@ -37,8 +38,9 @@ public final class ReportHistoryGui {
     private final GuiManager guiManager;
     private final ReportManager reportManager;
     private final AnvilGuiManager anvilGuiManager;
+    private final BukkitPlayerActionService bukkitPlayerActionService;
 
-    public ReportHistoryGui(GuiManager guiManager, ReportManager reportManager, AnvilGuiManager anvilGuiManager) {
+    public ReportHistoryGui(GuiManager guiManager, ReportManager reportManager, AnvilGuiManager anvilGuiManager, BukkitPlayerActionService bukkitPlayerActionService) {
 
         if (guiManager == null) {
             throw new IllegalArgumentException("GuiManager não pode ser nulo.");
@@ -52,9 +54,14 @@ public final class ReportHistoryGui {
             throw new IllegalArgumentException("AnvilGuiManager não pode ser nulo.");
         }
 
+        if (bukkitPlayerActionService == null) {
+            throw new IllegalArgumentException("BukkitPlayerActionService não pode ser nulo.");
+        }
+
         this.guiManager = guiManager;
         this.reportManager = reportManager;
         this.anvilGuiManager = anvilGuiManager;
+        this.bukkitPlayerActionService = bukkitPlayerActionService;
     }
 
     /*
@@ -262,7 +269,7 @@ public final class ReportHistoryGui {
              * abre o painel de ações.
              */
 
-            ReportActionGui actionGui = new ReportActionGui(guiManager, reportManager, anvilGuiManager);
+            ReportActionGui actionGui = new ReportActionGui(guiManager, reportManager, anvilGuiManager, bukkitPlayerActionService);
 
             actionGui.open(player, report);
         });
@@ -315,7 +322,7 @@ public final class ReportHistoryGui {
 
         gui.setItem(BACK_SLOT, GuiItem.item(Material.ARROW).name("<yellow>Voltar").lore("<gray>Voltar para a lista", "<gray>de reports.").onClick(event -> {
 
-            ReportListGui listGui = new ReportListGui(guiManager, reportManager, anvilGuiManager);
+            ReportListGui listGui = new ReportListGui(guiManager, reportManager, anvilGuiManager, bukkitPlayerActionService);
 
             listGui.open(player, status);
         }));

@@ -7,6 +7,7 @@ import br.com.laboon.bukkit.gui.GuiClickEvent;
 import br.com.laboon.bukkit.gui.GuiItem;
 import br.com.laboon.bukkit.gui.GuiManager;
 
+import br.com.laboon.bukkit.messaging.BukkitPlayerActionService;
 import br.com.laboon.core.report.Report;
 import br.com.laboon.core.report.ReportManager;
 import br.com.laboon.core.report.ReportStatus;
@@ -19,8 +20,9 @@ public final class ReportActionGui {
     private final GuiManager guiManager;
     private final ReportManager reportManager;
     private final AnvilGuiManager anvilGuiManager;
+    private final BukkitPlayerActionService bukkitPlayerActionService;
 
-    public ReportActionGui(GuiManager guiManager, ReportManager reportManager, AnvilGuiManager anvilGuiManager) {
+    public ReportActionGui(GuiManager guiManager, ReportManager reportManager, AnvilGuiManager anvilGuiManager, BukkitPlayerActionService bukkitPlayerActionService) {
 
         if (guiManager == null) {
             throw new IllegalArgumentException("GuiManager não pode ser nulo.");
@@ -34,9 +36,14 @@ public final class ReportActionGui {
             throw new IllegalArgumentException("AnvilGuiManager não pode ser nulo.");
         }
 
+        if (bukkitPlayerActionService == null) {
+            throw new IllegalArgumentException("BukkitPlayerActionService não pode ser nulo.");
+        }
+
         this.guiManager = guiManager;
         this.reportManager = reportManager;
         this.anvilGuiManager = anvilGuiManager;
+        this.bukkitPlayerActionService = bukkitPlayerActionService;
     }
 
     public void open(Player player, Report report) {
@@ -289,7 +296,7 @@ public final class ReportActionGui {
 
     private void openHistory(Player player, Report report, ReportStatus status) {
 
-        ReportHistoryGui historyGui = new ReportHistoryGui(guiManager, reportManager, anvilGuiManager);
+        ReportHistoryGui historyGui = new ReportHistoryGui(guiManager, reportManager, anvilGuiManager, bukkitPlayerActionService);
 
         historyGui.open(player, report.getTargetUniqueId(), report.getTargetName(), status, 0);
     }

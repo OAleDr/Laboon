@@ -29,6 +29,7 @@ import br.com.laboon.core.report.ReportExpirationService;
 import br.com.laboon.core.report.ReportManager;
 import br.com.laboon.core.server.ServerRegistry;
 
+import br.com.laboon.core.vanish.GlobalVanishRepository;
 import br.com.laboon.velocity.account.VelocityAccountService;
 import br.com.laboon.velocity.auth.AuthenticationService;
 import br.com.laboon.velocity.auth.MojangProfileService;
@@ -45,6 +46,7 @@ import br.com.laboon.velocity.listener.PunishmentConnectionListener;
 import br.com.laboon.velocity.listener.ServerDisconnectListener;
 import br.com.laboon.velocity.listener.ServerListener;
 import br.com.laboon.velocity.messaging.VelocityMessageService;
+import br.com.laboon.velocity.messaging.VelocityPlayerActionService;
 import br.com.laboon.velocity.party.PartyServerService;
 import br.com.laboon.velocity.player.PlayerManager;
 import br.com.laboon.velocity.player.PlayerServerService;
@@ -59,6 +61,7 @@ import br.com.laboon.velocity.server.ServerRegistrationService;
 import br.com.laboon.velocity.server.ServerRegistrySync;
 import br.com.laboon.velocity.server.ServerSelector;
 
+import br.com.laboon.velocity.vanish.VelocityVanishService;
 import com.google.inject.Inject;
 
 import com.velocitypowered.api.event.Subscribe;
@@ -205,6 +208,15 @@ public final class LaboonVelocity {
      */
 
     private PunishmentService punishmentService;
+
+    /*
+     * =========================
+     * VANISH
+     * =========================
+     */
+    private VelocityPlayerActionService velocityPlayerActionService;
+    private GlobalVanishRepository globalVanishRepository;
+    private VelocityVanishService velocityVanishService;
 
     @Inject
     public LaboonVelocity(
@@ -620,6 +632,11 @@ public final class LaboonVelocity {
                 new ReportExpirationService(
                         reportManager
                 );
+
+        velocityAccountService = new VelocityAccountService(accountManager, accountSessionManager);
+        globalVanishRepository = new GlobalVanishRepository(redisManager);
+        velocityVanishService = new VelocityVanishService(messageBus, globalVanishRepository);
+        velocityVanishService.start();
 
         logger.info(
                 "Managers inicializados."
