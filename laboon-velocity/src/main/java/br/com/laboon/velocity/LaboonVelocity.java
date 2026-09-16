@@ -35,6 +35,7 @@ import br.com.laboon.core.progression.prestige.PostgreSqlPrestigeRepository;
 import br.com.laboon.core.progression.prestige.PrestigeRepository;
 import br.com.laboon.core.progression.prestige.PrestigeService;
 import br.com.laboon.core.progression.prestige.PrestigeTransactionRepository;
+import br.com.laboon.core.progression.rewards.*;
 import br.com.laboon.core.redis.RedisManager;
 import br.com.laboon.core.report.ReportExpirationService;
 import br.com.laboon.core.report.ReportManager;
@@ -262,6 +263,20 @@ public final class LaboonVelocity {
     private PrestigeRepository prestigeRepository;
     private PrestigeTransactionRepository prestigeTransactionRepository;
     private PrestigeService prestigeService;
+
+    /*
+     * =========================
+     * PROGRESSION REWARDS
+     * =========================
+     */
+
+    private ProgressionRewardConfig progressionRewardConfig;
+
+    private ProgressionRewardService progressionRewardService;
+
+    private ProgressionLevelRewardListener progressionLevelRewardListener;
+
+    private PrestigeRewardListener prestigeRewardListener;
 
     @Inject
     public LaboonVelocity(
@@ -775,6 +790,91 @@ public final class LaboonVelocity {
                         prestigeTransactionRepository,
                         progressionService
                 );
+
+        /*
+         * =========================
+         * PROGRESSION REWARDS
+         * =========================
+         */
+
+        Path progressionRewardsFile =
+                Path.of(
+                        "plugins",
+                        "Laboon",
+                        "progression-rewards.yml"
+                );
+
+        try {
+            if (!java.nio.file.Files.exists(
+                    progressionRewardsFile
+            )) {
+
+                java.nio.file.Files.createDirectories(
+                        progressionRewardsFile.getParent()
+                );
+
+                try (
+                        var input =
+                                LaboonVelocity.class
+                                        .getResourceAsStream(
+                                                "/progression-rewards.yml"
+                                        )
+                ) {
+
+                    if (input == null) {
+                        throw new IllegalStateException(
+                                "progression-rewards.yml não encontrado no JAR."
+                        );
+                    }
+
+                    java.nio.file.Files.copy(
+                            input,
+                            progressionRewardsFile
+                    );
+                }
+            }
+
+        } catch (Exception exception) {
+
+            throw new IllegalStateException(
+                    "Não foi possível preparar progression-rewards.yml.",
+                    exception
+            );
+        }
+
+        progressionRewardConfig =
+                ProgressionRewardLoader.load(
+                        progressionRewardsFile
+                );
+
+        progressionRewardService =
+                new ProgressionRewardService(
+                        rewardService,
+                        progressionRewardConfig,
+                        progressionRewardConfig
+                );
+
+        progressionLevelRewardListener =
+                new ProgressionLevelRewardListener(
+                        progressionRewardService
+                );
+
+        prestigeRewardListener =
+                new PrestigeRewardListener(
+                        progressionRewardService
+                );
+
+        progressionService.addLevelUpListener(
+                progressionLevelRewardListener
+        );
+
+        prestigeService.addListener(
+                prestigeRewardListener
+        );
+
+        logger.info(
+                "Progression Rewards carregados."
+        );
 
         logger.info(
                 "Economy inicializada."
@@ -1386,6 +1486,11 @@ public final class LaboonVelocity {
         prestigeTransactionRepository = null;
         prestigeService = null;
 
+        progressionRewardConfig = null;
+        progressionRewardService = null;
+        progressionLevelRewardListener = null;
+        prestigeRewardListener = null;
+
         logger.info(
                 "Laboon encerrado."
         );
@@ -1522,5 +1627,13 @@ public final class LaboonVelocity {
 
     public PrestigeService getPrestigeService() {
         return prestigeService;
+    }
+
+    public ProgressionRewardConfig getProgressionRewardConfig() {
+        return progressionRewardConfig;
+    }
+
+    public ProgressionRewardService getProgressionRewardService() {
+        return progressionRewardService;
     }
 }

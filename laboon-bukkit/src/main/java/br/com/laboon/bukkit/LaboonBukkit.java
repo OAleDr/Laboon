@@ -68,6 +68,7 @@ import br.com.laboon.core.progression.prestige.PostgreSqlPrestigeRepository;
 import br.com.laboon.core.progression.prestige.PrestigeRepository;
 import br.com.laboon.core.progression.prestige.PrestigeService;
 import br.com.laboon.core.progression.prestige.PrestigeTransactionRepository;
+import br.com.laboon.core.progression.rewards.*;
 import br.com.laboon.core.redis.RedisManager;
 import br.com.laboon.core.report.ReportManager;
 import br.com.laboon.core.rewards.PostgreSqlRewardTransactionRepository;
@@ -276,6 +277,20 @@ public final class LaboonBukkit extends JavaPlugin {
 
     /*
      * =========================
+     * PROGRESSION REWARDS
+     * =========================
+     */
+
+    private ProgressionRewardConfig progressionRewardConfig;
+
+    private ProgressionRewardService progressionRewardService;
+
+    private ProgressionLevelRewardListener progressionLevelRewardListener;
+
+    private PrestigeRewardListener prestigeRewardListener;
+
+    /*
+     * =========================
      * ENABLE
      * =========================
      */
@@ -304,6 +319,11 @@ public final class LaboonBukkit extends JavaPlugin {
          */
 
         saveDefaultConfig();
+
+        saveResource(
+                "progression-rewards.yml",
+                false
+        );
 
         /*
          * =========================
@@ -813,6 +833,51 @@ public final class LaboonBukkit extends JavaPlugin {
                         prestigeTransactionRepository,
                         progressionService
                 );
+
+        /*
+         * =========================
+         * PROGRESSION REWARDS
+         * =========================
+         */
+
+        Path progressionRewardsFile =
+                getDataFolder()
+                        .toPath()
+                        .resolve("progression-rewards.yml");
+
+        progressionRewardConfig =
+                ProgressionRewardLoader.load(
+                        progressionRewardsFile
+                );
+
+        progressionRewardService =
+                new ProgressionRewardService(
+                        rewardService,
+                        progressionRewardConfig,
+                        progressionRewardConfig
+                );
+
+        progressionLevelRewardListener =
+                new ProgressionLevelRewardListener(
+                        progressionRewardService
+                );
+
+        prestigeRewardListener =
+                new PrestigeRewardListener(
+                        progressionRewardService
+                );
+
+        progressionService.addLevelUpListener(
+                progressionLevelRewardListener
+        );
+
+        prestigeService.addListener(
+                prestigeRewardListener
+        );
+
+        getLogger().info(
+                "Progression Rewards carregados."
+        );
 
         getLogger().info(
                 "Economy inicializada."
@@ -1556,6 +1621,11 @@ public final class LaboonBukkit extends JavaPlugin {
         prestigeTransactionRepository = null;
         prestigeService = null;
 
+        progressionRewardConfig = null;
+        progressionRewardService = null;
+        progressionLevelRewardListener = null;
+        prestigeRewardListener = null;
+
         getLogger().info(
                 "Laboon Bukkit encerrado."
         );
@@ -1675,5 +1745,13 @@ public final class LaboonBukkit extends JavaPlugin {
 
     public PrestigeService getPrestigeService() {
         return prestigeService;
+    }
+
+    public ProgressionRewardConfig getProgressionRewardConfig() {
+        return progressionRewardConfig;
+    }
+
+    public ProgressionRewardService getProgressionRewardService() {
+        return progressionRewardService;
     }
 }

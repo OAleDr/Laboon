@@ -1,0 +1,21 @@
+# Rewards automáticos de Progression
+
+levels:
+  5:
+    coins: 100
+
+  10:
+    coins: 250
+    tokens: 10
+
+  25:
+    coins: 500
+    tokens: 25
+
+prestiges:
+  1:
+    coins: 1000
+
+  2:
+    coins: 2000
+    tokens: 50
