@@ -28,6 +28,13 @@ import br.com.laboon.core.profile.GameCoinsRepository;
 import br.com.laboon.core.profile.PlayerProfile;
 import br.com.laboon.core.profile.ProfileManager;
 import br.com.laboon.core.profile.StatisticsRepository;
+import br.com.laboon.core.progression.PostgreSqlProgressionRepository;
+import br.com.laboon.core.progression.ProgressionRepository;
+import br.com.laboon.core.progression.ProgressionService;
+import br.com.laboon.core.progression.prestige.PostgreSqlPrestigeRepository;
+import br.com.laboon.core.progression.prestige.PrestigeRepository;
+import br.com.laboon.core.progression.prestige.PrestigeService;
+import br.com.laboon.core.progression.prestige.PrestigeTransactionRepository;
 import br.com.laboon.core.redis.RedisManager;
 import br.com.laboon.core.report.ReportExpirationService;
 import br.com.laboon.core.report.ReportManager;
@@ -237,6 +244,25 @@ public final class LaboonVelocity {
     private RewardTransactionRepository rewardTransactionRepository;
     private RewardService rewardService;
 
+    /*
+     * =========================
+     * PROGRESSION
+     * =========================
+     */
+
+    private ProgressionRepository progressionRepository;
+    private ProgressionService progressionService;
+
+    /*
+     * =========================
+     * PRESTIGE
+     * =========================
+     */
+
+    private PrestigeRepository prestigeRepository;
+    private PrestigeTransactionRepository prestigeTransactionRepository;
+    private PrestigeService prestigeService;
+
     @Inject
     public LaboonVelocity(
             ProxyServer proxyServer,
@@ -412,6 +438,14 @@ public final class LaboonVelocity {
                 "database/rewards.sql"
         );
 
+        migrationService.execute(
+                "database/progression.sql"
+        );
+
+        migrationService.execute(
+                "database/prestige.sql"
+        );
+
         if (!databaseManager.isConnected()) {
 
             throw new IllegalStateException(
@@ -528,6 +562,45 @@ public final class LaboonVelocity {
          * CONTAS
          * =========================
          */
+
+        accountRepository =
+                new PostgreSqlAccountRepository(
+                        databaseManager
+                );
+
+        accountPreferencesRepository =
+                new PostgreSqlAccountPreferencesRepository(
+                        databaseManager
+                );
+
+        temporaryGroupRepository =
+                new PostgreSqlTemporaryGroupRepository(
+                        databaseManager
+                );
+
+        punishmentRepository =
+                new PostgreSqlPunishmentRepository(
+                        databaseManager
+                );
+
+        accountCache =
+                new AccountCache(
+                        redisManager
+                );
+
+        accountService =
+                new AccountService(
+                        accountRepository,
+                        accountCache,
+                        accountPreferencesRepository,
+                        temporaryGroupRepository,
+                        punishmentRepository
+                );
+
+        accountManager =
+                new AccountManager(
+                        accountService
+                );
 
         temporaryGroupService =
                 new TemporaryGroupService(
@@ -660,8 +733,63 @@ public final class LaboonVelocity {
                         rewardTransactionRepository
                 );
 
+        /*
+         * =========================
+         * PROGRESSION
+         * =========================
+         */
+
+        progressionRepository =
+                new PostgreSqlProgressionRepository(
+                        databaseManager
+                );
+
+        progressionService =
+                new ProgressionService(
+                        accountManager,
+                        progressionRepository
+                );
+
+        /*
+         * =========================
+         * PRESTIGE
+         * =========================
+         */
+
+        PostgreSqlPrestigeRepository postgresPrestigeRepository =
+                new PostgreSqlPrestigeRepository(
+                        databaseManager
+                );
+
+        prestigeRepository =
+                postgresPrestigeRepository;
+
+        prestigeTransactionRepository =
+                postgresPrestigeRepository;
+
+        prestigeService =
+                new PrestigeService(
+                        databaseManager,
+                        accountManager,
+                        prestigeRepository,
+                        prestigeTransactionRepository,
+                        progressionService
+                );
+
         logger.info(
-                "Economy e Rewards inicializados."
+                "Economy inicializada."
+        );
+
+        logger.info(
+                "Rewards inicializados."
+        );
+
+        logger.info(
+                "Progression inicializada."
+        );
+
+        logger.info(
+                "Prestige inicializado."
         );
 
         logger.info(
@@ -1143,25 +1271,21 @@ public final class LaboonVelocity {
         );
 
         if (serverSyncTask != null) {
-
             serverSyncTask.cancel();
             serverSyncTask = null;
         }
 
         if (networkPlayerCountTask != null) {
-
             networkPlayerCountTask.cancel();
             networkPlayerCountTask = null;
         }
 
         if (reportExpirationTask != null) {
-
             reportExpirationTask.cancel();
             reportExpirationTask = null;
         }
 
         if (proxyHeartbeat != null) {
-
             proxyHeartbeat.stop();
             proxyHeartbeat = null;
         }
@@ -1251,8 +1375,16 @@ public final class LaboonVelocity {
 
         economyRepository = null;
         economyService = null;
+
         rewardTransactionRepository = null;
         rewardService = null;
+
+        progressionRepository = null;
+        progressionService = null;
+
+        prestigeRepository = null;
+        prestigeTransactionRepository = null;
+        prestigeService = null;
 
         logger.info(
                 "Laboon encerrado."
@@ -1364,11 +1496,31 @@ public final class LaboonVelocity {
 
     public RewardTransactionRepository
     getRewardTransactionRepository() {
-
         return rewardTransactionRepository;
     }
 
     public RewardService getRewardService() {
         return rewardService;
+    }
+
+    public ProgressionRepository getProgressionRepository() {
+        return progressionRepository;
+    }
+
+    public ProgressionService getProgressionService() {
+        return progressionService;
+    }
+
+    public PrestigeRepository getPrestigeRepository() {
+        return prestigeRepository;
+    }
+
+    public PrestigeTransactionRepository
+    getPrestigeTransactionRepository() {
+        return prestigeTransactionRepository;
+    }
+
+    public PrestigeService getPrestigeService() {
+        return prestigeService;
     }
 }

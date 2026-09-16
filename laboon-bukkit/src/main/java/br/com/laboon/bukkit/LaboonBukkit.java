@@ -61,6 +61,13 @@ import br.com.laboon.core.messaging.RedisPublisher;
 import br.com.laboon.core.messaging.RedisSubscriber;
 import br.com.laboon.core.profile.GameCoinsRepository;
 import br.com.laboon.core.profile.StatisticsRepository;
+import br.com.laboon.core.progression.PostgreSqlProgressionRepository;
+import br.com.laboon.core.progression.ProgressionRepository;
+import br.com.laboon.core.progression.ProgressionService;
+import br.com.laboon.core.progression.prestige.PostgreSqlPrestigeRepository;
+import br.com.laboon.core.progression.prestige.PrestigeRepository;
+import br.com.laboon.core.progression.prestige.PrestigeService;
+import br.com.laboon.core.progression.prestige.PrestigeTransactionRepository;
 import br.com.laboon.core.redis.RedisManager;
 import br.com.laboon.core.report.ReportManager;
 import br.com.laboon.core.rewards.PostgreSqlRewardTransactionRepository;
@@ -244,6 +251,28 @@ public final class LaboonBukkit extends JavaPlugin {
     private RewardTransactionRepository rewardTransactionRepository;
 
     private RewardService rewardService;
+
+    /*
+     * =========================
+     * PROGRESSION
+     * =========================
+     */
+
+    private ProgressionRepository progressionRepository;
+
+    private ProgressionService progressionService;
+
+    /*
+     * =========================
+     * PRESTIGE
+     * =========================
+     */
+
+    private PrestigeRepository prestigeRepository;
+
+    private PrestigeTransactionRepository prestigeTransactionRepository;
+
+    private PrestigeService prestigeService;
 
     /*
      * =========================
@@ -496,6 +525,12 @@ public final class LaboonBukkit extends JavaPlugin {
                             config
                     );
 
+            /*
+             * =========================
+             * MIGRATIONS
+             * =========================
+             */
+
             DatabaseMigrationService migrationService =
                     new DatabaseMigrationService(
                             databaseManager
@@ -507,6 +542,14 @@ public final class LaboonBukkit extends JavaPlugin {
 
             migrationService.execute(
                     "database/rewards.sql"
+            );
+
+            migrationService.execute(
+                    "database/progression.sql"
+            );
+
+            migrationService.execute(
+                    "database/prestige.sql"
             );
 
             if (!databaseManager.isConnected()) {
@@ -724,12 +767,67 @@ public final class LaboonBukkit extends JavaPlugin {
                         rewardTransactionRepository
                 );
 
+        /*
+         * =========================
+         * PROGRESSION
+         * =========================
+         */
+
+        /*
+         * Use aqui sua implementação PostgreSQL
+         * da ProgressionRepository.
+         */
+        progressionRepository =
+                new PostgreSqlProgressionRepository(
+                        databaseManager
+                );
+
+        progressionService =
+                new ProgressionService(
+                        accountManager,
+                        progressionRepository
+                );
+
+        /*
+         * =========================
+         * PRESTIGE
+         * =========================
+         */
+
+        PostgreSqlPrestigeRepository postgresPrestigeRepository =
+                new PostgreSqlPrestigeRepository(
+                        databaseManager
+                );
+
+        prestigeRepository =
+                postgresPrestigeRepository;
+
+        prestigeTransactionRepository =
+                postgresPrestigeRepository;
+
+        prestigeService =
+                new PrestigeService(
+                        databaseManager,
+                        accountManager,
+                        prestigeRepository,
+                        prestigeTransactionRepository,
+                        progressionService
+                );
+
         getLogger().info(
                 "Economy inicializada."
         );
 
         getLogger().info(
                 "Rewards inicializados."
+        );
+
+        getLogger().info(
+                "Progression inicializada."
+        );
+
+        getLogger().info(
+                "Prestige inicializado."
         );
 
         getLogger().info(
@@ -1436,28 +1534,27 @@ public final class LaboonBukkit extends JavaPlugin {
          */
 
         accountManager = null;
-
         accountRepository = null;
-
         accountPreferencesRepository = null;
-
         temporaryGroupRepository = null;
-
         punishmentRepository = null;
-
         accountCache = null;
 
         databaseManager = null;
-
         redisManager = null;
 
         economyRepository = null;
-
         economyService = null;
 
         rewardTransactionRepository = null;
-
         rewardService = null;
+
+        progressionRepository = null;
+        progressionService = null;
+
+        prestigeRepository = null;
+        prestigeTransactionRepository = null;
+        prestigeService = null;
 
         getLogger().info(
                 "Laboon Bukkit encerrado."
@@ -1534,19 +1631,16 @@ public final class LaboonBukkit extends JavaPlugin {
 
     public PostgreSqlAccountPreferencesRepository
     getAccountPreferencesRepository() {
-
         return accountPreferencesRepository;
     }
 
     public PostgreSqlTemporaryGroupRepository
     getTemporaryGroupRepository() {
-
         return temporaryGroupRepository;
     }
 
     public PostgreSqlPunishmentRepository
     getPunishmentRepository() {
-
         return punishmentRepository;
     }
 
@@ -1556,11 +1650,30 @@ public final class LaboonBukkit extends JavaPlugin {
 
     public RewardTransactionRepository
     getRewardTransactionRepository() {
-
         return rewardTransactionRepository;
     }
 
     public RewardService getRewardService() {
         return rewardService;
+    }
+
+    public ProgressionRepository getProgressionRepository() {
+        return progressionRepository;
+    }
+
+    public ProgressionService getProgressionService() {
+        return progressionService;
+    }
+
+    public PrestigeRepository getPrestigeRepository() {
+        return prestigeRepository;
+    }
+
+    public PrestigeTransactionRepository getPrestigeTransactionRepository() {
+        return prestigeTransactionRepository;
+    }
+
+    public PrestigeService getPrestigeService() {
+        return prestigeService;
     }
 }
